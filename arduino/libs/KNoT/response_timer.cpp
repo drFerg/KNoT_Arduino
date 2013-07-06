@@ -4,12 +4,13 @@
 
 
 #define NUM_OF_TIMERS 10
+#define ONE_SECOND 8000000
 
 int timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
 
 
-int elapsed;
+int elapsed = 1;
 int current = 0;
 
 int flag = 0;
@@ -28,7 +29,12 @@ int is_timer_event(){
 	return temp;
 }
 
+int timer_expired(){
+	return expired;
+}
+
 void timer_ISR(){
+	current = 0;
 	int next = 8;
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] > 0){ // Check if a valid timer or already timed-out
@@ -44,7 +50,7 @@ void timer_ISR(){
 
 	
 	//set timerIRQ to next timer
-	elapsed = next;
+	
 	
 }
 
@@ -54,7 +60,7 @@ void init_timer(){
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		timers[i] = -1;
 	}
-	Timer1.initialize(8388480);
+	Timer1.initialize(ONE_SECOND);
 	Timer1.attachInterrupt(timer_ISR);
 }
 
@@ -80,10 +86,12 @@ int get_next_expired(){
 	for (;current < NUM_OF_TIMERS; current++){
 		if (timers[current] == 0){
 			timers[current] = -1; // Reset to invalidate timer
+			expired--;
 			sei();
 			return events[current];
 		}
 	}
+	expired = 0;
 	sei();
 	return 0;
 }

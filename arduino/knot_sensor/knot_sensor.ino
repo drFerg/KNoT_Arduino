@@ -120,6 +120,8 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	state->ticks = state->rate * PING_RATE;
 	Serial.print("TX rate: ");Serial.println(state->rate);
 	// Setup sensor polling HERE
+	int ret = set_timer(state->rate, state->chan_num);
+	if (ret != -1) Serial.print("Set timer\n");
 	Serial.print(">>CONNECTION FULLY ESTABLISHED<<\n");
 	state->state = STATE_CONNECTED;
 	sending = state;
@@ -152,11 +154,16 @@ void network_handler(){
 	unsigned long thresh = 500;
 	unsigned long timer = 0;
 	for(;;){
-		if (sensing && (millis() - timer > thresh)){
-			//do query
-			
-			timer = millis();
-			send_handler(sending);
+		if (timer_expired()){
+			int chan = get_next_expired();
+			while (chan){
+				Serial.print("Channel timer expired: ");Serial.println(chan);
+				ChannelState *s = get_channel_state(chan);
+				send_handler(s);
+				set_timer(s->rate, s->chan_num);
+				chan = get_next_expired();
+				Serial.print("SENT\n");
+			}
 		}
 		ChannelState *state = NULL;
 		src = recv_pkt(&dp);
