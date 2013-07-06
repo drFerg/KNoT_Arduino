@@ -8,7 +8,7 @@
 
 
 #include "knot_protocol.h"
-
+#include <TimerOne.h>
 #include "knot_network_pan.h"
 #include "knot_network.h"
 #include "channeltable.h"
@@ -31,7 +31,7 @@
 #define RED A5
 #define GREEN A3
 #define BLUE A4
-#define DEVICE_ADDRESS 2
+#define DEVICE_ADDRESS 10
 
 char controller_name[] = "The Boss";
 ChannelState home_channel_state;
@@ -265,6 +265,7 @@ void setup(){
 	home_channel_state.remote_chan_num = 0;
 	home_channel_state.state = STATE_CONNECTED;
 	home_channel_state.remote_addr = 5;
+	home_channel_state.rate = 2;
 
 	}
 

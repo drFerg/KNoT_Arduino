@@ -26,9 +26,8 @@ int available = 0;
 
 void blink(){
   digitalWrite(LEDOUTPUT, HIGH);
-  delay(500);
+  delay(250);
   digitalWrite(LEDOUTPUT, LOW);
-  delay(100);
 }
 
 void radioISR(void){
@@ -67,7 +66,7 @@ int init_link_layer(){
 	radio.init();
 	radio.setDevAddress(DEVICE_ADDRESS, false);
 	// for start we disable the address checks in the chip hardware
-	radio.disableAddressCheck();
+	radio.enableAddressCheck();
 	// we only want to receive data in this script
 	radio.setRxState();
 	radio.rfState = RFSTATE_RX;
@@ -162,7 +161,8 @@ int recv_pkt(DataPayload *dp){
 		Serial.print("RADIO>> Data recvd: ");Serial.println(res);
 		if (packet.crc_ok && (packet.length > 0)){
 		    memcpy(dp, &(packet.data[2]), (packet.length - 2));
-		  	Serial.print("RADIO>> Received pkt from addr: ");Serial.println(packet.data[1]);
+		    Serial.print("RADIO>> Pkt for addr: ");Serial.println(packet.data[0]);
+		  	
 		  	enable_RF_IRQ();
 		  	return packet.data[1];
   		} else {

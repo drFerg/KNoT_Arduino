@@ -73,7 +73,7 @@ void query_handler(ChannelState *state, DataPayload *dp){
 
 	qr.type = sensor_type;
 	strcpy(qr.name, sensor_name); // copy name
-	qr.rate = 5;
+	qr.rate = DATA_RATE;
 	new_dp->hdr.dst_chan_num = dp->hdr.src_chan_num; 
     new_dp->hdr.cmd = QACK; 
     new_dp->dhdr.tlen = sizeof(QueryResponseMsg);
@@ -144,7 +144,7 @@ void send_handler(ChannelState* state){
     new_dp->dhdr.tlen = sizeof(ResponseMsg);
     memcpy(&(new_dp->data),&rmsg,sizeof(ResponseMsg));
     Serial.print("Sending data\n");
-    send_on_knot_channel(state,new_dp);
+    send_on_knot_channel(state, new_dp);
 }
 
 void network_handler(){
@@ -187,18 +187,17 @@ void network_handler(){
 				remove_channel(state->chan_num);
 			}
 			state = &home_channel_state;
-			copy_link_address(state);
+			state->remote_addr = src;
 	  	} /* Special case for Homechannel which only responds to QACKs */
 		else if (dp.hdr.dst_chan_num == HOMECHANNEL){
 			if (cmd == QUERY){
 				state = &home_channel_state;
-				copy_link_address(state);
 				state->remote_addr = src;
 	  		}
 	  		else if (cmd == CONNECT){
 	  			state = new_channel();
 	  			Serial.print("Sensor: New Channel\n");
-	  			copy_link_address(state);
+	  			state->remote_addr = src;
 	  		}
 	  	}
   		else {

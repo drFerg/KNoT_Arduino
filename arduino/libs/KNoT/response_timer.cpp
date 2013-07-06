@@ -4,7 +4,7 @@
 
 
 #define NUM_OF_TIMERS 10
-#define ONE_SECOND 8000000
+#define ONE_SECOND 1000000
 
 int timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
@@ -12,7 +12,7 @@ int events[NUM_OF_TIMERS];
 
 int elapsed = 1;
 int current = 0;
-
+int next = 8;
 int flag = 0;
 int expired = 0;
 void timerIsr()
@@ -35,7 +35,7 @@ int timer_expired(){
 
 void timer_ISR(){
 	current = 0;
-	int next = 8;
+	next = 8;
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] > 0){ // Check if a valid timer or already timed-out
 			timers[i] = timers[i] - elapsed;
@@ -48,7 +48,7 @@ void timer_ISR(){
 		}
 	}
 
-	
+	Timer1.setPeriod(next * ONE_SECOND);
 	//set timerIRQ to next timer
 	
 	
@@ -70,6 +70,12 @@ int set_timer(int timer, int val){
 		if (timers[i] == -1){
 			timers[i] = timer;
 			events[i] = val;
+			if (timer < next){ 
+				//Check if less than current next timer
+				next = timer;
+				Timer1.setPeriod(timer * ONE_SECOND);
+				//Serial.print(timer * ONE_SECOND);
+			}
 			return i;
 		}
 	}
