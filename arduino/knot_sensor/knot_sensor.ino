@@ -262,7 +262,7 @@ void setColour(int red, int green, int blue)
 void setup(){
 	Serial.begin(9800);
 	Serial.println("start");
-
+	randomSeed(analogRead(0));
 	pinMode(LEDOUTPUT, OUTPUT);
 	digitalWrite(LEDOUTPUT, LOW);
 	pinMode(LEDONOFF, OUTPUT);
@@ -272,7 +272,7 @@ void setup(){
 	Serial.println("setup done");
 	init_table();
 	init_knot_network();
-	set_dev_addr(DEVICE_ADDRESS);
+	set_dev_addr(random(1,256));
 	blinker();
 
 	home_channel_state.chan_num = 0;
