@@ -38,6 +38,10 @@
 #define GREEN A3
 #define BLUE A4
 
+#define NETWORK_EVENT packetAvailable()
+
+#define TIMER_EVENT timer_expired()
+
 #define LIGHT A0
 #define TEMP_PIN A7
 #define DEVICE_ADDRESS 3
@@ -151,88 +155,84 @@ void network_handler(){
 	unsigned short cmd;
 	DataPayload dp;
 	uint8_t src;
-	unsigned long thresh = 500;
-	unsigned long timer = 0;
-	for(;;){
-		if (timer_expired()){
-			int chan = get_next_expired();
-			while (chan){
-				Serial.print("Channel timer expired: ");Serial.println(chan);
-				ChannelState *s = get_channel_state(chan);
-				send_handler(s);
-				set_timer(s->rate, s->chan_num);
-				chan = get_next_expired();
-				Serial.print("SENT\n");
-			}
+	
+	ChannelState *state = NULL;
+	src = recv_pkt(&dp);
+	if (src){
+		Serial.print("KNoT>> Received packet from ");Serial.println(src);
+	}
+	else {
+		return;
+	}
+	
+	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
+	cmd = dp.hdr.cmd;        // only a byte so no reordering :)
+	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
+	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
+	
+	if (cmd == DISCONNECT){
+		state = get_channel_state(dp.hdr.dst_chan_num);
+		if (state){
+			remove_channel(state->chan_num);
 		}
-		ChannelState *state = NULL;
-		src = recv_pkt(&dp);
-		if (src){
-			Serial.print("KNoT>> Received packet from ");Serial.println(src);
-		}
-		else {
-			Serial.print(".");
-			delay(1000);
-			continue;
-		}
-		
-		Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
-		cmd = dp.hdr.cmd;        // only a byte so no reordering :)
-		Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
-		Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
-		
-		if (cmd == DISCONNECT){
-			state = get_channel_state(dp.hdr.dst_chan_num);
-			if (state){
-				remove_channel(state->chan_num);
-			}
+		state = &home_channel_state;
+		state->remote_addr = src;
+  	} /* Special case for Homechannel which only responds to QACKs */
+	else if (dp.hdr.dst_chan_num == HOMECHANNEL){
+		if (cmd == QUERY){
 			state = &home_channel_state;
 			state->remote_addr = src;
-	  	} /* Special case for Homechannel which only responds to QACKs */
-		else if (dp.hdr.dst_chan_num == HOMECHANNEL){
-			if (cmd == QUERY){
-				state = &home_channel_state;
-				state->remote_addr = src;
-	  		}
-	  		else if (cmd == CONNECT){
-	  			state = new_channel();
-	  			Serial.print("Sensor: New Channel\n");
-	  			state->remote_addr = src;
-	  		}
-	  	}
-  		else {
-			state = get_channel_state(dp.hdr.dst_chan_num);
-			if (state == NULL){
-				Serial.print("Channel doesn't exist\n");
-				return;
-			}
-			// 	//copy_link_address(state); // CHECK IF RIGHT CONNECTION
-			
-	 	}
+  		}
+  		else if (cmd == CONNECT){
+  			state = new_channel();
+  			Serial.print("Sensor: New Channel\n");
+  			state->remote_addr = src;
+  		}
+  	}
+		else {
+		state = get_channel_state(dp.hdr.dst_chan_num);
+		if (state == NULL){
+			Serial.print("Channel doesn't exist\n");
+			return;
+		}
+		// 	//copy_link_address(state); // CHECK IF RIGHT CONNECTION
+		
+ 	}
 
-		serialPrintf("Seqno: %d\n", dp.hdr.seqno);
-		if (cmd == QUERY)
-			query_handler(state, &dp);
-		else if (cmd == CONNECT)
-			connect_handler(state, &dp);
-		else if (cmd == CACK)
-			cack_handler(state,&dp);
-		// if (check_seqno(state, &dp) == 0){
-		// 	Serial.print("Oh no\n");
-		// }
-		//continue;
-		/* PUT IN QUERY CHECK FOR TYPE */
-		// switch(cmd){
-		//     //case(QUERY):   		query_handler(state,&dp, src);	break;
-		//  //  	case(CONNECT): 		connect_handler(state,&dp);		break;
-		// 	// case(CACK):   		cack_handler(state, &dp);		break;
-		// 	case(PING):   		ping_handler(state, &dp);		break;
-		// 	// case(PACK):   		pack_handler(state, &dp);		break;
-		// 	// case(DISCONNECT): 	close_handler(state,&dp);		break;
-		// }
-	}
+	serialPrintf("Seqno: %d\n", dp.hdr.seqno);
+	if (cmd == QUERY)
+		query_handler(state, &dp);
+	else if (cmd == CONNECT)
+		connect_handler(state, &dp);
+	else if (cmd == CACK)
+		cack_handler(state,&dp);
+	// if (check_seqno(state, &dp) == 0){
+	// 	Serial.print("Oh no\n");
+	// }
+	//
+	/* PUT IN QUERY CHECK FOR TYPE */
+	// switch(cmd){
+	//     //case(QUERY):   		query_handler(state,&dp, src);	break;
+	//  //  	case(CONNECT): 		connect_handler(state,&dp);		break;
+	// 	// case(CACK):   		cack_handler(state, &dp);		break;
+	// 	case(PING):   		ping_handler(state, &dp);		break;
+	// 	// case(PACK):   		pack_handler(state, &dp);		break;
+	// 	// case(DISCONNECT): 	close_handler(state,&dp);		break;
+	// }
+
 }
 
+void timer_handler(){
+	int chan = get_next_expired();
+	while (chan){
+		Serial.print("Channel timer expired: ");Serial.println(chan);
+		ChannelState *s = get_channel_state(chan);
+		send_handler(s);
+		set_timer(s->rate, s->chan_num);
+		chan = get_next_expired();
+		Serial.print("SENT\n");
+	}
+}
 void rgbSetup(){
 	pinMode(RED, OUTPUT);
 	pinMode(GREEN, OUTPUT);
@@ -281,5 +281,8 @@ void setup(){
 }
 
 void loop(){
-	network_handler();
+	if (NETWORK_EVENT)
+		network_handler();
+	else if (TIMER_EVENT)
+		timer_handler();
 }

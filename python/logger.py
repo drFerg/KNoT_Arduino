@@ -5,7 +5,7 @@ if sys.argv < 3:
 	print "Please specify serial port and baud to log"
 	sys.exit()
 
-f = open("output.csv","wr")
+f = open(strftime("%d%m%Y-%H%M%S", gmtime())+ "output.csv","wr")
 gateway = serial.Serial(sys.argv[1], sys.argv[2])
 
 while True:

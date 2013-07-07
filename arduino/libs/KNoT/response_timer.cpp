@@ -4,7 +4,8 @@
 
 
 #define NUM_OF_TIMERS 10
-#define ONE_SECOND 1000000
+#define MAX_TIME 8 //Timer limit is 8.3....s
+#define ONE_SECOND 1000000 //One second in microseconds
 
 int timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
@@ -35,7 +36,7 @@ int timer_expired(){
 
 void timer_ISR(){
 	current = 0;
-	next = 8;
+	next = MAX_TIME;
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] > 0){ // Check if a valid timer or already timed-out
 			timers[i] = timers[i] - elapsed;
@@ -48,7 +49,9 @@ void timer_ISR(){
 		}
 	}
 
+	elapsed = next;
 	Timer1.setPeriod(next * ONE_SECOND);
+
 	//set timerIRQ to next timer
 	
 	
@@ -73,6 +76,7 @@ int set_timer(int timer, int val){
 			if (timer < next){ 
 				//Check if less than current next timer
 				next = timer;
+				elapsed = next;
 				Timer1.setPeriod(timer * ONE_SECOND);
 				//Serial.print(timer * ONE_SECOND);
 			}

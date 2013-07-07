@@ -25,7 +25,7 @@
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
 #define HOMECHANNEL 0
-#define BUFF 256
+
 #define LEDOUTPUT 4
 #define LEDONOFF 3
 #define RED A5
@@ -33,9 +33,15 @@
 #define BLUE A4
 #define DEVICE_ADDRESS 10
 
+#define NETWORK_EVENT packetAvailable()
+#define SERIAL_EVENT (Serial.available() > 0)
+#define TIMER_EVENT 0
+
 char controller_name[] = "The Boss";
 ChannelState home_channel_state;
 int connected = 0;
+
+
 void blinker(){
       digitalWrite(LEDOUTPUT, HIGH);
       delay(100);
@@ -133,92 +139,86 @@ void service_search(ChannelState* state, uint8_t type){
 }
 
 
-/* RECIEVE BLOCK */
 
-
-
-void server(){
+void read_network(){
 	
 	unsigned short cmd;
 	DataPayload dp;
-	char buf[BUFF];
-	int rlen;
-	unsigned long thresh = 3000;
-	unsigned long timer = 0;
 	uint8_t src;
 
-	for(;;){
-		if (!connected && (millis() - timer > thresh)){
-			//do query
-			service_search(&home_channel_state, TEMP);
-			timer = millis();
-			Serial.print("Service search\n");
-		}
-		ChannelState *state = NULL;
-		/* Gets data from the connection */
-		// NEEDS TO BE REPLACED WITH KNOT_NETWORK_FUNCTION TO CLEAN UP
-		src = recv_pkt(&dp);
-		if (src){
-			Serial.print("KNoT>> Received packet from ");Serial.println(src);
-		}
-		else {
-			continue;
-		}
-		
-		Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
-		cmd = dp.hdr.cmd;        // only a byte so no reordering :)
-		Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
-		Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
-		
-		/* Always allow disconnections to prevent crazies */
-		if (cmd == DISCONNECT){
-	  		state = get_channel_state(dp.hdr.dst_chan_num);
-			if (state){
-				remove_channel(state->chan_num);
-			}
-			state = &home_channel_state;
-			copy_link_address(state);
-	  	} /* Special case for Homechannel which only responds to QACKs */
-	  	else if (dp.hdr.dst_chan_num == HOMECHANNEL){
-			if (cmd == QACK){
-				state = &home_channel_state;
-	  		}
-	  		state = &home_channel_state;
-	  		state->remote_addr = src;
-	  	} /* The rest of the channels */
-		else{
-			state = get_channel_state(dp.hdr.dst_chan_num);
-			if (state == NULL){
-				Serial.print("Channel ");Serial.print(dp.hdr.dst_chan_num);Serial.print(" doesn't exist\n");
-				continue;
-			}
-			if (check_seqno(state, &dp) == 0) {
-				Serial.print("OH NOES\n");
-				continue;
-			} else { //CHECK IF RIGHT CONNECTION
-				//copy_link_address(state);
-			}
-		}
-		//continue;
-		switch(cmd){
-			case(QUERY):    	Serial.print("I'm a controller, Ignoring QUERY\n");break;
-			case(CONNECT): 	 	Serial.print("I'm a controller, Ignoring CONNECT\n");break;
-			case(QACK):     	qack_handler(state, &dp);break;
-			case(CACK):     	cack_handler(state, &dp);break;
-			case(RESPONSE): 	response_handler(state, &dp);break;
-			// case(CMDACK):   	command_ack_handler(state,dp);break;
-			case(PING):     	ping_handler(state, &dp);break;
-			// case(PACK):     	pack_handler(state, &dp);break;
-			// case(DISCONNECT): 	close_handler(state,&dp);
-		}
-		
+	ChannelState *state = NULL;
+	/* Gets data from the connection */
 
+	src = recv_pkt(&dp);
+	if (src){
+		Serial.print("KNoT>> Received packet from ");Serial.println(src);
+	}
+	else {
+		return;
+	}
+	
+	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
+	cmd = dp.hdr.cmd;        // only a byte so no reordering :)
+	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
+	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
+	
+	/* Always allow disconnections to prevent crazies */
+	if (cmd == DISCONNECT){
+  		state = get_channel_state(dp.hdr.dst_chan_num);
+		if (state){
+			remove_channel(state->chan_num);
+		}
+		state = &home_channel_state;
+		state->remote_addr = src;
+  	} /* Special case for Homechannel which only responds to QACKs */
+  	else if (dp.hdr.dst_chan_num == HOMECHANNEL && cmd == QACK){
+		state = &home_channel_state;
+		state->remote_addr = src;
+  	} /* The rest of the channels */
+	else{
+		state = get_channel_state(dp.hdr.dst_chan_num);
+		if (state == NULL){
+			Serial.print("Channel ");Serial.print(dp.hdr.dst_chan_num);Serial.print(" doesn't exist\n");
+			return;
+		}
+		if (check_seqno(state, &dp) == 0) {
+			Serial.print("OH NOES\n");
+			return;
+		} else { //CHECK IF RIGHT CONNECTION
+			//copy_link_address(state);
+		}
+	}
+	//continue;
+	switch(cmd){
+		case(QUERY):    	break;
+		case(CONNECT): 	 	break;
+		case(QACK):     	qack_handler(state, &dp);break;
+		case(CACK):     	cack_handler(state, &dp);break;
+		case(RESPONSE): 	response_handler(state, &dp);break;
+		// case(CMDACK):   	command_ack_handler(state,dp);break;
+		case(PING):     	ping_handler(state, &dp);break;
+		// case(PACK):     	pack_handler(state, &dp);break;
+		// case(DISCONNECT): 	close_handler(state,&dp);
 	}
 
-
-	
 }
 
+
+void read_serial(){
+	Serial.print("Recvd some serial input\n");
+	char buf[20];
+	char inByte = Serial.read();
+	buf[0] = Serial.read();
+	buf[1] = '\0';
+	switch (inByte){
+		case 's': service_search(&home_channel_state, atoi(buf));
+		default: Serial.print("Invalid command\n");Serial.print(inByte);
+	}
+
+	while(Serial.available() > 0)
+		inByte = Serial.read();
+
+}
 
 void setColor(int red, int green, int blue)
 {
@@ -237,24 +237,24 @@ void setup(){
 	pinMode(LEDONOFF, OUTPUT);
 	digitalWrite(LEDONOFF, HIGH);
 
-	pinMode(RED, OUTPUT);
-	pinMode(GREEN, OUTPUT);
-	pinMode(BLUE, OUTPUT);
+	// pinMode(RED, OUTPUT);
+	// pinMode(GREEN, OUTPUT);
+	// pinMode(BLUE, OUTPUT);
 
-	analogWrite(RED, 255);
-	analogWrite(GREEN, 255);
-	analogWrite(BLUE, 255);
+	// analogWrite(RED, 255);
+	// analogWrite(GREEN, 255);
+	// analogWrite(BLUE, 255);
 
-	analogWrite(RED, 0);
-	delay(100);
-	analogWrite(GREEN, 0);
-	delay(100);
-	analogWrite(BLUE, 0);
-	delay(100);
+	// analogWrite(RED, 0);
+	// delay(100);
+	// analogWrite(GREEN, 0);
+	// delay(100);
+	// analogWrite(BLUE, 0);
+	// delay(100);
 
-	analogWrite(RED, 255);
-	analogWrite(GREEN, 255);
-	analogWrite(BLUE, 255);
+	// analogWrite(RED, 255);
+	// analogWrite(GREEN, 255);
+	// analogWrite(BLUE, 255);
 
 	Serial.println("setup done");
 	init_table();
@@ -265,10 +265,24 @@ void setup(){
 	home_channel_state.remote_chan_num = 0;
 	home_channel_state.state = STATE_CONNECTED;
 	home_channel_state.remote_addr = 5;
-	home_channel_state.rate = 2;
+	home_channel_state.rate = 60;
 
 	}
 
+unsigned long thresh = 3000;
+unsigned long timer = 0;
 void loop(){
-	server();
+
+	// if (!connected && (millis() - timer > thresh)){
+	// 	//do query
+	// 	service_search(&home_channel_state, TEMP);
+	// 	timer = millis();
+	// 	Serial.print("Service search\n");
+	// }
+	if (NETWORK_EVENT)
+		read_network();
+	else if (SERIAL_EVENT)
+		read_serial();
+	// else if (TIMER_EVENT)
+	// 	check_timer();
 }
