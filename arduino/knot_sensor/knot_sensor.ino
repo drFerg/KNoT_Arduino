@@ -152,12 +152,8 @@ void send_handler(ChannelState* state){
 }
 
 void network_handler(){
-	unsigned short cmd;
 	DataPayload dp;
-	uint8_t src;
-	
-	ChannelState *state = NULL;
-	src = recv_pkt(&dp);
+	uint8_t src = recv_pkt(&dp);
 	if (src){
 		Serial.print("KNoT>> Received packet from ");Serial.println(src);
 	}
@@ -166,10 +162,11 @@ void network_handler(){
 	}
 	
 	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
-	cmd = dp.hdr.cmd;        // only a byte so no reordering :)
+	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
 	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
 	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
 	
+	ChannelState *state = NULL;
 	if (cmd == DISCONNECT){
 		state = get_channel_state(dp.hdr.dst_chan_num);
 		if (state){

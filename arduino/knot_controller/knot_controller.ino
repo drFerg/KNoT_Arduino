@@ -140,28 +140,25 @@ void service_search(ChannelState* state, uint8_t type){
 
 
 
-void read_network(){
-	
-	unsigned short cmd;
+void network_handler(){
 	DataPayload dp;
-	uint8_t src;
 
-	ChannelState *state = NULL;
 	/* Gets data from the connection */
-
-	src = recv_pkt(&dp);
+	uint8_t src = recv_pkt(&dp);
 	if (src){
 		Serial.print("KNoT>> Received packet from ");Serial.println(src);
 	}
 	else {
 		return;
 	}
-	
+
 	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
-	cmd = dp.hdr.cmd;        // only a byte so no reordering :)
+	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
 	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
 	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
 	
+	ChannelState *state = NULL;
+
 	/* Always allow disconnections to prevent crazies */
 	if (cmd == DISCONNECT){
   		state = get_channel_state(dp.hdr.dst_chan_num);
@@ -272,15 +269,8 @@ void setup(){
 unsigned long thresh = 3000;
 unsigned long timer = 0;
 void loop(){
-
-	// if (!connected && (millis() - timer > thresh)){
-	// 	//do query
-	// 	service_search(&home_channel_state, TEMP);
-	// 	timer = millis();
-	// 	Serial.print("Service search\n");
-	// }
 	if (NETWORK_EVENT)
-		read_network();
+		network_handler();
 	else if (SERIAL_EVENT)
 		read_serial();
 	// else if (TIMER_EVENT)
