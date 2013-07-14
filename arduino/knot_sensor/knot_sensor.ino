@@ -12,7 +12,7 @@
 #include "knot_network_pan.h"
 #include "knot_network.h"
 #include "channeltable.h"
-#include "response_timer.h"
+#include "callback_timer.h"
 #define DEBUG 1
 
 #if DEBUG
