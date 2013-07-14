@@ -9,6 +9,7 @@
 
 int timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
+void (*callbacks[NUM_OF_TIMERS])(int);
 
 
 int elapsed = 1;
@@ -68,11 +69,12 @@ void init_timer(){
 }
 
 
-int set_timer(int timer, int val){
+int set_timer(int timer, int val, void (*callback)(int)){
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] == -1){
 			timers[i] = timer;
 			events[i] = val;
+			callbacks[i] = callback;
 			if (timer < next){ 
 				//Check if less than current next timer
 				next = timer;
@@ -98,6 +100,22 @@ int get_next_expired(){
 			timers[current] = -1; // Reset to invalidate timer
 			expired--;
 			sei();
+			return events[current];
+		}
+	}
+	expired = 0;
+	sei();
+	return 0;
+}
+
+int run_next_expired(){
+	cli();
+	for (;current < NUM_OF_TIMERS; current++){
+		if (timers[current] == 0){
+			timers[current] = -1; // Reset to invalidate timer
+			expired--;
+			sei();
+			callbacks[current](events[current]);
 			return events[current];
 		}
 	}

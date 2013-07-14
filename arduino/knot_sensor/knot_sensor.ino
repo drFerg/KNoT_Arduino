@@ -52,6 +52,11 @@ ChannelState home_channel_state;
 ChannelState *sending;
 int sensing = 0;
 
+void printer(int val){
+	Serial.print("VALUE = ");
+	Serial.println(val);
+}
+
 float ambientTemp(){
 	int reading = analogRead(TEMP_PIN);
 	return (100 * reading * 3.3)/1024;
@@ -124,7 +129,7 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	state->ticks = state->rate * PING_RATE;
 	Serial.print("TX rate: ");Serial.println(state->rate);
 	// Setup sensor polling HERE
-	int ret = set_timer(state->rate, state->chan_num);
+	int ret = set_timer(state->rate, state->chan_num, &printer);
 	if (ret != -1) Serial.print("Set timer\n");
 	Serial.print(">>CONNECTION FULLY ESTABLISHED<<\n");
 	state->state = STATE_CONNECTED;
@@ -196,7 +201,7 @@ void network_handler(){
 		
  	}
 
-	serialPrintf("Seqno: %d\n", dp.hdr.seqno);
+	Serial.print("Seqno: ");Serial.println(dp.hdr.seqno);
 	if (cmd == QUERY)
 		query_handler(state, &dp);
 	else if (cmd == CONNECT)
@@ -220,13 +225,13 @@ void network_handler(){
 }
 
 void timer_handler(){
-	int chan = get_next_expired();
+	int chan = run_next_expired();
 	while (chan){
 		Serial.print("Channel timer expired: ");Serial.println(chan);
 		ChannelState *s = get_channel_state(chan);
 		send_handler(s);
-		set_timer(s->rate, s->chan_num);
-		chan = get_next_expired();
+		set_timer(s->rate, s->chan_num, &printer);
+		chan = run_next_expired();
 		Serial.print("SENT\n");
 	}
 }
@@ -257,8 +262,8 @@ void setColour(int red, int green, int blue)
 }
 
 void setup(){
-	Serial.begin(9800);
-	Serial.println("start");
+	Serial.begin(38400);
+	Serial.println(">> Sensor initialising...");
 	randomSeed(analogRead(0));
 	pinMode(LEDOUTPUT, OUTPUT);
 	digitalWrite(LEDOUTPUT, LOW);
@@ -266,7 +271,7 @@ void setup(){
 	digitalWrite(LEDONOFF, HIGH);
 	//rgbSetup();
 
-	Serial.println("setup done");
+	
 	init_table();
 	init_knot_network();
 	set_dev_addr(random(1,256));
@@ -275,6 +280,7 @@ void setup(){
 	home_channel_state.chan_num = 0;
     home_channel_state.seqno = 0;
 	init_timer();
+	Serial.println(">> Initialised");
 }
 
 void loop(){

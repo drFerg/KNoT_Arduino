@@ -34,13 +34,16 @@
 #define DEVICE_ADDRESS 10
 
 #define NETWORK_EVENT packetAvailable()
-#define SERIAL_EVENT (Serial.available() > 0)
+#define SERIAL_EVENT Serial.available()
 #define TIMER_EVENT 0
 
 char controller_name[] = "The Boss";
 ChannelState home_channel_state;
 int connected = 0;
-
+int serial_ready = 0;
+char buf[50];
+int serial_index = 0;
+int addr = 0;
 
 void blinker(){
       digitalWrite(LEDOUTPUT, HIGH);
@@ -60,29 +63,21 @@ void qack_handler(ChannelState *state, DataPayload *dp){
 
 	Serial.print("Sensor name: ");Serial.println(qr->name);
 	Serial.print("Sensor type: ");Serial.println(qr->type);
-	state->state = STATE_IDLE;
+	char str[50];
+	sprintf(str,"[QACK,%d,%d,%s,%d]\n", state->remote_addr,
+									state->remote_chan_num,
+									qr->name,
+									qr->type);
+	Serial.print(str);
+	addr = state->remote_addr;
+	// char *data = (char *)dp;
+	// for (int i = 0; i < sizeof(QueryResponseMsg); i++){
+	// 	Serial.write(data[i]);
+	// }
+	// Serial.println();
+	//state->state = STATE_IDLE;
 	// process_post(state->ccb.client_process, KNOT_EVENT_SERVICE_FOUND, &sc);
-
 	//create_channel(state, dp);
-	ChannelState * s = new_channel();
-	if (state == NULL) return;
-
-	s->remote_addr = state->remote_addr;
-	s->rate = home_channel_state.rate;
-	DataPayload *new_dp = &(s->packet);
-	clean_packet(new_dp);
-
-	ConnectMsg *cm = (ConnectMsg *)(new_dp->data);
-	strcpy(cm->name, controller_name);
-	cm->rate = state->rate;
-	new_dp->hdr.dst_chan_num = 0;
-	new_dp->hdr.src_chan_num = s->chan_num;
- 	new_dp->hdr.cmd = CONNECT; 
-    new_dp->dhdr.tlen = sizeof(ConnectMsg);
-    Serial.print("Sending connect request\n");
-    send_on_knot_channel(s,new_dp);
-    s->state = STATE_CONNECT;
-	s->ticks = 10;
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
@@ -121,6 +116,7 @@ void response_handler(ChannelState *state, DataPayload *dp){
 	Serial.print(rmsg->name); Serial.print(": "); Serial.println(rmsg->data);
 	/*RESET PING TIMER*/
 }
+
 void service_search(ChannelState* state, uint8_t type){
 
   DataPayload *new_dp = &(state->packet); 
@@ -138,8 +134,27 @@ void service_search(ChannelState* state, uint8_t type){
   state->ticks = 100;
 }
 
+void init_connection_to(ChannelState* state, uint8_t addr, int rate){
+	ChannelState * s = new_channel();
+	if (state == NULL) return;
 
+	s->remote_addr = addr;
+	s->rate = rate;
+	DataPayload *new_dp = &(s->packet);
+	clean_packet(new_dp);
 
+	ConnectMsg *cm = (ConnectMsg *)(new_dp->data);
+	strcpy(cm->name, controller_name);
+	cm->rate = rate;
+	new_dp->hdr.dst_chan_num = 0;
+	new_dp->hdr.src_chan_num = s->chan_num;
+ 	new_dp->hdr.cmd = CONNECT; 
+    new_dp->dhdr.tlen = sizeof(ConnectMsg);
+    Serial.print("Sending connect request\n");
+    send_on_knot_channel(s,new_dp);
+    s->state = STATE_CONNECT;
+	s->ticks = 10;
+}
 void network_handler(){
 	DataPayload dp;
 
@@ -153,7 +168,7 @@ void network_handler(){
 	}
 
 	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
-	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
+	unsigned short cmd = dp.hdr.cmd;
 	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
 	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
 	
@@ -202,20 +217,37 @@ void network_handler(){
 
 
 void read_serial(){
-	Serial.print("Recvd some serial input\n");
-	char buf[20];
-	char inByte = Serial.read();
-	buf[0] = Serial.read();
-	buf[1] = '\0';
-	switch (inByte){
-		case 's': service_search(&home_channel_state, atoi(buf));
-		default: Serial.print("Invalid command\n");Serial.print(inByte);
+	while (Serial.available()){
+		buf[serial_index++] = Serial.read();
+		if (buf[serial_index-1] == ';'){
+			serial_ready = 1;
+		}
 	}
-
-	while(Serial.available() > 0)
-		inByte = Serial.read();
+	
 
 }
+
+
+void serial_handler(){
+	Serial.println(buf);
+	if (buf[0] == 's'){
+		service_search(&home_channel_state, TEMP);
+	}
+	else if (buf[0] == 'c'){
+		init_connection_to(&home_channel_state, addr, 10);
+	}
+	// switch (inByte){
+	// 	case 's': service_search(&home_channel_state, );
+	// 	default: Serial.print("Invalid command\n");Serial.print(inByte);
+	// }
+}
+
+
+/** PUBLIC METHODS **/
+void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
+	init_connection_to(&home_channel_state, addr, rate);
+}
+
 
 void setColor(int red, int green, int blue)
 {
@@ -233,25 +265,6 @@ void setup(){
 
 	pinMode(LEDONOFF, OUTPUT);
 	digitalWrite(LEDONOFF, HIGH);
-
-	// pinMode(RED, OUTPUT);
-	// pinMode(GREEN, OUTPUT);
-	// pinMode(BLUE, OUTPUT);
-
-	// analogWrite(RED, 255);
-	// analogWrite(GREEN, 255);
-	// analogWrite(BLUE, 255);
-
-	// analogWrite(RED, 0);
-	// delay(100);
-	// analogWrite(GREEN, 0);
-	// delay(100);
-	// analogWrite(BLUE, 0);
-	// delay(100);
-
-	// analogWrite(RED, 255);
-	// analogWrite(GREEN, 255);
-	// analogWrite(BLUE, 255);
 
 	Serial.println("setup done");
 	init_table();
@@ -273,6 +286,12 @@ void loop(){
 		network_handler();
 	else if (SERIAL_EVENT)
 		read_serial();
+	else if (serial_ready){
+		serial_ready = 0;
+		serial_index = 0;
+		memset(&buf,50,'\0');
+		serial_handler();
+	}
 	// else if (TIMER_EVENT)
 	// 	check_timer();
 }
