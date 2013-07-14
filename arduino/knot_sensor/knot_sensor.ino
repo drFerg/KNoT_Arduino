@@ -52,11 +52,6 @@ ChannelState home_channel_state;
 ChannelState *sending;
 int sensing = 0;
 
-void printer(int val){
-	Serial.print("VALUE = ");
-	Serial.println(val);
-}
-
 float ambientTemp(){
 	int reading = analogRead(TEMP_PIN);
 	return (100 * reading * 3.3)/1024;
@@ -68,6 +63,7 @@ void blinker(){
       digitalWrite(LEDOUTPUT, LOW);
       delay(100);
 }
+
 void query_handler(ChannelState *state, DataPayload *dp){
 	QueryMsg *q = (QueryMsg* )(dp->data);
 	Serial.println(q->type);
@@ -130,7 +126,7 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	Serial.print("TX rate: ");Serial.println(state->rate);
 	// Setup sensor polling HERE
 	int ret = set_timer(state->rate, state->chan_num, &process_send);
-	if (ret != -1) Serial.print("Set timer\n");
+	if (ret == -1) Serial.print("ERROR>> Setting timer failed!!\n");
 	Serial.print(">>CONNECTION FULLY ESTABLISHED<<\n");
 	state->state = STATE_CONNECTED;
 	sending = state;

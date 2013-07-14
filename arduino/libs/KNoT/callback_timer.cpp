@@ -4,26 +4,37 @@
 
 
 #define NUM_OF_TIMERS 10
-#define MAX_TIME 8 //Timer limit is 8.3....s
+#define MAX_TIME_S 8 //Timer limit is 8.3....s
 #define ONE_SECOND 1000000 //One second in microseconds
+#define MAX_TIME_MS (MAX_TIME_S * ONE_SECOND)
 
-int timers[NUM_OF_TIMERS];
+int32_t timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
 void (*callbacks[NUM_OF_TIMERS])(int);
 
 
-int elapsed = 1;
-int current = 0;
-int next = 8;
-int expired = 0;
+int32_t elapsed = MAX_TIME_MS;
+int32_t next = MAX_TIME_MS;
 
+uint8_t current = 0;
+uint8_t expired = 0;
+
+uint8_t flag = 0;
 int timer_expired(){
+	#ifdef DEBUG 1
+	if (flag) {
+		Serial.println("Timer expired");
+		Serial.print("Timer0: "); Serial.println(timers[0]);
+		Serial.print("Next timer : "); Serial.println(next);
+		flag = 0;
+	}
+	#endif
 	return expired;
 }
 
 void timer_ISR(){
 	current = 0;
-	next = MAX_TIME;
+	next = MAX_TIME_MS;
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] > 0){ // Check if a valid timer or already timed-out
 			timers[i] = timers[i] - elapsed;
@@ -35,10 +46,14 @@ void timer_ISR(){
 			}
 		}
 	}
-
+	#ifdef DEBUG 1
+	if (expired==0){
+		flag = 1;
+	}
+	#endif
 	//set timer to next shortest timer expiry
 	elapsed = next;
-	Timer1.setPeriod(next * ONE_SECOND);
+	Timer1.setPeriod(next);
 }
 
 
@@ -47,26 +62,26 @@ void init_timer(){
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		timers[i] = -1;
 	}
-	Timer1.initialize(MAX_TIME * ONE_SECOND);
+	Timer1.initialize(MAX_TIME_MS);
 	Timer1.attachInterrupt(timer_ISR);
 }
 
 
-int set_timer(int timer, int val, void (*callback)(int)){
+int set_timer(double timer, int val, void (*callback)(int)){
 	for (int i = 0; i < NUM_OF_TIMERS; i++){
 		if (timers[i] == -1){
-			timers[i] = timer;
+			timers[i] = timer * ONE_SECOND;
 			events[i] = val;
 			callbacks[i] = callback;
-			if (timer < next){ 
+			if (timers[i] < next){ 
 				//Check if less than current next timer
-				next = timer;
+				next = timers[i];
 				elapsed = next;
-				Timer1.setPeriod(timer * ONE_SECOND);
+				Timer1.setPeriod(timers[i]);
 			}
 			return i;
 		}
-	}
+	}//No space in queue
 	return -1;
 }
 
@@ -84,7 +99,7 @@ int run_next_expired(){
 			timers[current] = -1; // Reset to invalidate timer
 			expired--;
 			sei();
-
+			callbacks[current](events[current]);
 			return events[current];
 		}
 	}

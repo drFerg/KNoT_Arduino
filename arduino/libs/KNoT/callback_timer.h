@@ -9,7 +9,7 @@ void init_timer();
  * val is passed to the callback function upon timer expiry 
  * and call to run_next_expired()
  * - Returns 0 if queue is full, 1 otherwise. */
-int set_timer(int timer, int val, void(*callback)(int));
+int set_timer(double timer, int val, void(*callback)(int));
 
 /* Runs the next expired timer's callback function */
 int run_next_expired();
