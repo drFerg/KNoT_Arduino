@@ -129,7 +129,7 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	state->ticks = state->rate * PING_RATE;
 	Serial.print("TX rate: ");Serial.println(state->rate);
 	// Setup sensor polling HERE
-	int ret = set_timer(state->rate, state->chan_num, &printer);
+	int ret = set_timer(state->rate, state->chan_num, &process_send);
 	if (ret != -1) Serial.print("Set timer\n");
 	Serial.print(">>CONNECTION FULLY ESTABLISHED<<\n");
 	state->state = STATE_CONNECTED;
@@ -224,15 +224,16 @@ void network_handler(){
 
 }
 
+void process_send(int chan){
+	ChannelState *s = get_channel_state(chan);
+	send_handler(s);
+	set_timer(s->rate, s->chan_num, &process_send);
+	Serial.print("SENT\n");
+}
 void timer_handler(){
-	int chan = run_next_expired();
+	int chan = 1;
 	while (chan){
-		Serial.print("Channel timer expired: ");Serial.println(chan);
-		ChannelState *s = get_channel_state(chan);
-		send_handler(s);
-		set_timer(s->rate, s->chan_num, &printer);
 		chan = run_next_expired();
-		Serial.print("SENT\n");
 	}
 }
 void rgbSetup(){
