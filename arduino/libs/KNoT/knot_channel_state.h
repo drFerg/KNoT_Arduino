@@ -17,7 +17,7 @@ typedef struct channel_state{
    uint16_t ticks;
    uint16_t rate;
    uint8_t pingOUT;
-   //struct ctimer timer;
+   uint8_t timer;
    DataPayload packet;
 }ChannelState;
 

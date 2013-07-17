@@ -17,4 +17,9 @@ int run_next_expired();
 /* Returns the number of timers that have expired, 0 otherwise */
 int timer_expired();
 
+/*executes the callback functions for the expired timers */
+void timer_handler();
+/* removes the timer referenced by the id */
+void remove_timer(int id);
+
 #endif /* CALLBACK_TIMER_H */

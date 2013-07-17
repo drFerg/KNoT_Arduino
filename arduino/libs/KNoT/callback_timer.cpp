@@ -85,9 +85,9 @@ int set_timer(double timer, int val, void (*callback)(int)){
 	return -1;
 }
 
-void remove_timer(int index){
-	if (index < NUM_OF_TIMERS){
-		timers[index] = -1;
+void remove_timer(int id){
+	if (id < NUM_OF_TIMERS){
+		timers[id] = -1;
 	}
 }
 
@@ -106,4 +106,11 @@ int run_next_expired(){
 	expired = 0;
 	sei();
 	return 0;
+}
+
+void timer_handler(){
+	int chan = 1;
+	while (chan){
+		chan = run_next_expired();
+	}
 }

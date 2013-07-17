@@ -13,6 +13,7 @@
 #include "knot_network.h"
 #include "channeltable.h"
 #include "callback_timer.h"
+#include "LED.h"
 #define DEBUG 1
 
 #if DEBUG
@@ -30,17 +31,10 @@
 
 #define TIMER_INTERVAL 3
 #define DATA_RATE  1
-#define PING_RATE  5   // How many data intervals to wait before PING
+#define PING_RATE  1   // How many data intervals to wait before PING
 #define RATE_CHANGE 1
 
-#define LEDOUTPUT 4
-#define LEDONOFF 3
-#define RED A5
-#define GREEN A3
-#define BLUE A4
-
 #define NETWORK_EVENT packetAvailable()
-
 #define TIMER_EVENT timer_expired()
 
 #define LIGHT A0
@@ -50,19 +44,12 @@ char sensor_name[] = "Bedroom";
 uint8_t sensor_type = TEMP;
 
 ChannelState home_channel_state;
-ChannelState *sending;
-int sensing = 0;
+
 
 float ambientTemp(){
 	int reading = analogRead(TEMP_PIN);
 	return (100 * reading * 3.3)/1024;
 
-}
-void blinker(){
-      digitalWrite(LEDOUTPUT, HIGH);
-      delay(100);
-      digitalWrite(LEDOUTPUT, LOW);
-      delay(100);
 }
 
 void query_handler(ChannelState *state, DataPayload *dp){
@@ -94,7 +81,7 @@ void connect_handler(ChannelState *state, DataPayload *dp){
 	Serial.print(cm->name);Serial.print(" wants to connect from channel ");Serial.println(dp->hdr.src_chan_num);
 	Serial.print("Replying on channel ");Serial.println(state->chan_num);
 	/* Request src must be saved to message back */
-	//state->ccb.callback = home_channel_state.ccb.callback;
+
 	state->remote_chan_num = dp->hdr.src_chan_num;
 	if (cm->rate > DATA_RATE){
 		state->rate = cm->rate;
@@ -116,40 +103,53 @@ void connect_handler(ChannelState *state, DataPayload *dp){
     memcpy(&(new_dp->data),&ck,sizeof(ConnectACKMsg));
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECT;
-	set_timer(TIMEOUT, s->chan_num, &reliability_retry);
+	// Set up timer to ensure reliability
+	state->timer = set_timer(TIMEOUT, state->chan_num, &reliable_retry);
+	if (state->timer == -1){
+		Serial.print("ERROR>> Setting timer failed!!\n");
+	}// Shouldn't happen...
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_CONNECT){
-		PRINTF("Not in Connecting state\n");
+		Serial.print("Not in Connecting state\n");
 		return;
 	}
+	//Disable timer now that message has been received successfully
+	remove_timer(state->timer);
 	state->ticks = state->rate * PING_RATE;
 	Serial.print("TX rate: ");Serial.println(state->rate);
-	// Setup sensor polling HERE
-	int ret = set_timer(state->rate, state->chan_num, &process_send);
-	if (ret == -1) Serial.print("ERROR>> Setting timer failed!!\n");
+	// Setup sensor polling
+	state->timer = set_timer(state->rate, state->chan_num, &send_handler);
+	if (state->timer == -1){
+		Serial.print("ERROR>> Setting timer failed!!\n");
+	}// Shouldn't happen...
+
 	Serial.print(">>CONNECTION FULLY ESTABLISHED<<\n");
 	state->state = STATE_CONNECTED;
-	sending = state;
-	sensing = 1;
 }
 
-void send_handler(ChannelState* state){
+void send_value(ChannelState* state){
     DataPayload *new_dp = &(state->packet);
-	ResponseMsg rmsg;
-	uint16_t data = 0;
+	ResponseMsg *rmsg = (ResponseMsg*)&(new_dp->data);
 	//state->ccb.callback(NULL, &data);
-	//rmsg.data = (int)getCPUTemp();
+	rmsg->data = (int)getCPUTemp();
 	//rmsg.data = analogRead(LIGHT);
-	rmsg.data = (int)ambientTemp();
-	strcpy(rmsg.name,sensor_name);
+	//rmsg.data = (int)ambientTemp();
+	strcpy(rmsg->name,sensor_name);
 
-	new_dp->hdr.src_chan_num = state->chan_num;
+	if(state->ticks == 0){
+	    new_dp->hdr.cmd = RSYN; 
+	    state->ticks == state->rate * PING_RATE;
+    }
+    else{
+    	new_dp->hdr.cmd = RESPONSE;
+    	state->ticks--;
+    }
+
+    new_dp->hdr.src_chan_num = state->chan_num;
 	new_dp->hdr.dst_chan_num = state->remote_chan_num;
-    new_dp->hdr.cmd = RESPONSE; 
     new_dp->dhdr.tlen = sizeof(ResponseMsg);
-    memcpy(&(new_dp->data),&rmsg,sizeof(ResponseMsg));
     Serial.print("Sending data\n");
     send_on_knot_channel(state, new_dp);
 }
@@ -222,67 +222,33 @@ void network_handler(){
 
 }
 
-void process_send(int chan){
+void send_handler(int chan){
 	ChannelState *s = get_channel_state(chan);
-	send_handler(s);
-	set_timer(s->rate, s->chan_num, &process_send);
+	send_value(s);
+	set_timer(s->rate, s->chan_num, &send_handler);
 	Serial.print("SENT\n");
 }
 
-void reliability_retry(int chan){
+void reliable_retry(int chan){
 	ChannelState *s = get_channel_state(chan);
 	if (s == NULL)return;
 	if (s->state % 2 != 0){ // Waiting for response state...
-		resend(s); // Assume failed, retry
-		set_timer(TIMEOUT, s->chan_num, &reliability_retry);
-	}
-}
-
-void timer_handler(){
-	int chan = 1;
-	while (chan){
-		chan = run_next_expired();
+		Serial.print("Retrying...\n");
+		resend(s); // Assume failed, retry and set timer again
+		set_timer(TIMEOUT, s->chan_num, &reliable_retry);
 	}
 }
 
 
-void rgbSetup(){
-	pinMode(RED, OUTPUT);
-	pinMode(GREEN, OUTPUT);
-	pinMode(BLUE, OUTPUT);
 
-	analogWrite(RED, 255);
-	analogWrite(GREEN, 255);
-	analogWrite(BLUE, 255);
 
-	analogWrite(RED, 0);
-	delay(100);
-	analogWrite(GREEN, 0);
-	delay(100);
-	analogWrite(BLUE, 0);
-	delay(100);
-
-	setColour(0,0,0);
-}
-
-void setColour(int red, int green, int blue)
-{
-	analogWrite(RED, 255 - red);
-	analogWrite(GREEN, 255 - green);
-	analogWrite(BLUE, 255 - blue);
-}
 
 void setup(){
 	Serial.begin(38400);
 	Serial.println(">> Sensor initialising...");
 	randomSeed(analogRead(0));
-	pinMode(LEDOUTPUT, OUTPUT);
-	digitalWrite(LEDOUTPUT, LOW);
-	pinMode(LEDONOFF, OUTPUT);
-	digitalWrite(LEDONOFF, HIGH);
-	//rgbSetup();
+	ledIOSetup();
 
-	
 	init_table();
 	init_knot_network();
 	set_dev_addr(random(1,256));

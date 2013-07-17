@@ -12,6 +12,7 @@
 #include "knot_network_pan.h"
 #include "knot_network.h"
 #include "channeltable.h"
+#include "LED.h"
 
 #define DEBUG 1
 
@@ -26,13 +27,6 @@
 #define TIMER_INTERVAL 3
 #define HOMECHANNEL 0
 
-#define LEDOUTPUT 4
-#define LEDONOFF 3
-#define RED A5
-#define GREEN A3
-#define BLUE A4
-#define DEVICE_ADDRESS 10
-
 #define NETWORK_EVENT packetAvailable()
 #define SERIAL_EVENT Serial.available()
 #define TIMER_EVENT 0
@@ -45,12 +39,6 @@ char buf[50];
 int serial_index = 0;
 int addr = 0;
 
-void blinker(){
-      digitalWrite(LEDOUTPUT, HIGH);
-      delay(100);
-      digitalWrite(LEDOUTPUT, LOW);
-      delay(100);
-}
 
 void qack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_QUERY) {
@@ -207,6 +195,7 @@ void network_handler(){
 		case(QACK):     	qack_handler(state, &dp);break;
 		case(CACK):     	cack_handler(state, &dp);break;
 		case(RESPONSE): 	response_handler(state, &dp);break;
+		case(RSYN):		 	response_handler(state, &dp);break;
 		// case(CMDACK):   	command_ack_handler(state,dp);break;
 		case(PING):     	ping_handler(state, &dp);break;
 		// case(PACK):     	pack_handler(state, &dp);break;
@@ -249,22 +238,13 @@ void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
 }
 
 
-void setColor(int red, int green, int blue)
-{
-	analogWrite(RED, 255 - red);
-	analogWrite(GREEN, 255 - green);
-	analogWrite(BLUE, 255 - blue);
-}
 
 void setup(){
 
 	Serial.begin(38400);
 	randomSeed(analogRead(0));
-	pinMode(LEDOUTPUT, OUTPUT);
-	digitalWrite(LEDOUTPUT, LOW);
-
-	pinMode(LEDONOFF, OUTPUT);
-	digitalWrite(LEDONOFF, HIGH);
+	
+	ledIOSetup();
 
 	Serial.println("setup done");
 	init_table();

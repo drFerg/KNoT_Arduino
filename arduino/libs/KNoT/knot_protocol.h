@@ -41,6 +41,7 @@
 #define PACK    12
 #define SEQNO   13
 #define SACK    14
+#define RSYN    15
 
 
 #define CMD_LOW CONNECT
