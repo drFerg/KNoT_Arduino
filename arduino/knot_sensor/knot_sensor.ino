@@ -22,6 +22,7 @@
 #define PRINTF(...)
 #endif
 
+#define TIMEOUT 0.5
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
 #define HOMECHANNEL 0
@@ -115,6 +116,7 @@ void connect_handler(ChannelState *state, DataPayload *dp){
     memcpy(&(new_dp->data),&ck,sizeof(ConnectACKMsg));
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECT;
+	set_timer(TIMEOUT, s->chan_num, &reliability_retry);
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
@@ -226,12 +228,24 @@ void process_send(int chan){
 	set_timer(s->rate, s->chan_num, &process_send);
 	Serial.print("SENT\n");
 }
+
+void reliability_retry(int chan){
+	ChannelState *s = get_channel_state(chan);
+	if (s == NULL)return;
+	if (s->state % 2 != 0){ // Waiting for response state...
+		resend(s); // Assume failed, retry
+		set_timer(TIMEOUT, s->chan_num, &reliability_retry);
+	}
+}
+
 void timer_handler(){
 	int chan = 1;
 	while (chan){
 		chan = run_next_expired();
 	}
 }
+
+
 void rgbSetup(){
 	pinMode(RED, OUTPUT);
 	pinMode(GREEN, OUTPUT);

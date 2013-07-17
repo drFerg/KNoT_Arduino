@@ -32,6 +32,9 @@ void send_uni(ChannelState *state, DataPayload *dp);
 void send_on_channel(ChannelState *state, DataPayload *dp);
 
 void broadcast(ChannelState *state, DataPayload *dp);
+
+void resend(ChannelState *state);
+
 int recv_pkt(DataPayload *dp);
 //int sleep_recv_pkt(DataPayload *dp);
 

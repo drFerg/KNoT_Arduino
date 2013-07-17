@@ -141,6 +141,10 @@ void broadcast(ChannelState *state, DataPayload *dp){
 	enable_RF_IRQ();
 }
 
+void resend(ChannelState *state){
+	send_on_channel(state,&(state->packet));
+}
+
 void send_uni(ChannelState *state, DataPayload *dp){
    // int dplen = sizeof(PayloadHeader) + sizeof(DataHeader) + uip_ntohs(dp->dhdr.tlen);
    // uip_udp_packet_send(udp_conn, (char*)dp, dplen);
