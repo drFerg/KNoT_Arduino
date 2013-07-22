@@ -1,10 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
-#include <serialPrintf.h>
 
 #include "EEPROM.h"
 #include "cc1101.h"
-
 
 
 #include "knot_protocol.h"
@@ -14,14 +12,7 @@
 #include "channeltable.h"
 #include "LED.h"
 
-#define DEBUG 1
 
-#if DEBUG
-
-#define PRINTF(...) serialPrintf(__VA_ARGS__)
-#else
-#define PRINTF(...)
-#endif
 
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
@@ -42,15 +33,15 @@ int addr = 0;
 
 void qack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_QUERY) {
-		Serial.print("Not in Query state\n");
+		Serial.print(F("Not in Query state\n"));
 		return;
 	}
-	Serial.print("Query ACK received\n");
+	Serial.print(F("Query ACK received\n"));
 	state->ticks = 100;
 	QueryResponseMsg *qr = (QueryResponseMsg *)&dp->data;
 
-	Serial.print("Sensor name: ");Serial.println(qr->name);
-	Serial.print("Sensor type: ");Serial.println(qr->type);
+	Serial.print(F("Sensor name: "));Serial.println(qr->name);
+	Serial.print(F("Sensor type: "));Serial.println(qr->type);
 	char str[50];
 	sprintf(str,"[QACK,%d,%d,%s,%d]\n", state->remote_addr,
 									state->remote_chan_num,
@@ -58,26 +49,18 @@ void qack_handler(ChannelState *state, DataPayload *dp){
 									qr->type);
 	Serial.print(str);
 	addr = state->remote_addr;
-	// char *data = (char *)dp;
-	// for (int i = 0; i < sizeof(QueryResponseMsg); i++){
-	// 	Serial.write(data[i]);
-	// }
-	// Serial.println();
-	//state->state = STATE_IDLE;
-	// process_post(state->ccb.client_process, KNOT_EVENT_SERVICE_FOUND, &sc);
-	//create_channel(state, dp);
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_CONNECT){
-		Serial.print("Not in Connecting state\n");
+		Serial.print(F("Not in Connecting state\n"));
 		return;
 	}
 	ConnectACKMsg *ck = (ConnectACKMsg*)(dp->data);
 	if (ck->accept == 0){
-		Serial.print("SCREAM! THEY DIDN'T EXCEPT!!");
+		Serial.print(F("SCREAM! THEY DIDN'T EXCEPT!!"));
 	}
-	Serial.print(ck->name);Serial.print(" accepts connection request on channel "); Serial.println(dp->hdr.src_chan_num);
+	Serial.print(ck->name);Serial.print(F(" accepts connection request on channel ")); Serial.println(dp->hdr.src_chan_num);
 	state->remote_chan_num = dp->hdr.src_chan_num;
 
 	DataPayload *new_dp = &(state->packet);
@@ -96,7 +79,7 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 
 void response_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_CONNECTED && state->state != STATE_PING){
-		PRINTF("Not connected to device!\n");
+		PRINTF(F("Not connected to device!\n"));
 		return;
 	}
 	state->ticks = 100;
@@ -120,6 +103,7 @@ void service_search(ChannelState* state, uint8_t type){
   knot_broadcast(state,new_dp);
   state->state = STATE_QUERY;
   state->ticks = 100;
+  // Set timer to exit Query state after 5 secs~
 }
 
 void init_connection_to(ChannelState* state, uint8_t addr, int rate){
@@ -138,7 +122,7 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
 	new_dp->hdr.src_chan_num = s->chan_num;
  	new_dp->hdr.cmd = CONNECT; 
     new_dp->dhdr.tlen = sizeof(ConnectMsg);
-    Serial.print("Sending connect request\n");
+    Serial.print(F("Sending connect request\n"));
     send_on_knot_channel(s,new_dp);
     s->state = STATE_CONNECT;
 	s->ticks = 10;
@@ -149,16 +133,16 @@ void network_handler(){
 	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
 	if (src){
-		Serial.print("KNoT>> Received packet from ");Serial.println(src);
+		Serial.print(F("KNoT>> Received packet from "));Serial.println(src);
 	}
 	else {
 		return;
 	}
 
-	Serial.print("Data is ");Serial.print(dp.dhdr.tlen);Serial.print(" bytes long\n");
+	Serial.print(F("Data is "));Serial.print(dp.dhdr.tlen);Serial.print(F(" bytes long\n"));
 	unsigned short cmd = dp.hdr.cmd;
-	Serial.print("Received a ");Serial.print(cmdnames[cmd]);Serial.print(" command.\n");
-	Serial.print("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
+	Serial.print(F("Received a "));Serial.print(cmdnames[cmd]);Serial.print(F(" command.\n"));
+	Serial.print(F("Message for channel "));Serial.println(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
 
@@ -178,11 +162,11 @@ void network_handler(){
 	else{
 		state = get_channel_state(dp.hdr.dst_chan_num);
 		if (state == NULL){
-			Serial.print("Channel ");Serial.print(dp.hdr.dst_chan_num);Serial.print(" doesn't exist\n");
+			Serial.print(F("Channel "));Serial.print(dp.hdr.dst_chan_num);Serial.print(F(" doesn't exist\n"));
 			return;
 		}
 		if (check_seqno(state, &dp) == 0) {
-			Serial.print("OH NOES\n");
+			Serial.print(F("OH NOES\n"));
 			return;
 		} else { //CHECK IF RIGHT CONNECTION
 			//copy_link_address(state);
@@ -240,23 +224,20 @@ void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
 
 
 void setup(){
-
 	Serial.begin(38400);
-	randomSeed(analogRead(0));
-	
+	Serial.println(F(">> Controller initialising..."));
+	randomSeed(analogRead(0));// Used for addr
 	ledIOSetup();
-
-	Serial.println("setup done");
 	init_table();
 	init_knot_network();
 	set_dev_addr(random(1,256));
 	blinker();
 	home_channel_state.chan_num = 0;
 	home_channel_state.remote_chan_num = 0;
-	home_channel_state.state = STATE_CONNECTED;
-	home_channel_state.remote_addr = 5;
+	home_channel_state.state = STATE_IDLE;
+	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
-
+	Serial.println(F(">> Initialised"));
 	}
 
 unsigned long thresh = 3000;

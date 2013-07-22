@@ -1,9 +1,9 @@
 #ifndef CHANNEL_TABLE
 #define CHANNEL_TABLE
-//#include "knot_network_udp.h"
+
 #include "knot_channel_state.h"
 /* Num of channels available in table */
-#define CHANNEL_NUM 10
+#define CHANNEL_NUM 5
 
 /* 
  * initialise the channel table 
