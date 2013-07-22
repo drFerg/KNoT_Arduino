@@ -1,7 +1,6 @@
 #include "knot_network_pan.h"
 #include "cc1101.h"
 #include <stdlib.h>
-#include <serialPrintf.h>
 // #include <avr/sleep.h>
 #define DEBUG 1
 #if DEBUG
@@ -34,45 +33,31 @@ void radioISR(void){
 	disable_RF_IRQ();
 	if (radio.rfState == RFSTATE_RX){
 		available = 1;
-
 	}
-
 	enable_RF_IRQ();
 }
-
-// void sleepyRadioISR(void){
-// 	disable_SRF_IRQ();
-// 	if (radio.rfState == RFSTATE_RX){
-// 		available = 1;
-
-// 	}
-
-// 	enable_RF_IRQ();
-// }
 
 int packetAvailable(){
 	return available;
 }
 
-
-
 void set_dev_addr(int addr){
 	radio.setDevAddress(addr, false);
-	//delay(500);
-	Serial.print("Device address now: ");Serial.println(radio.readDevAddress());
+	Serial.print(F("Device address now: "));Serial.println(radio.readDevAddress());
 }
+
 int init_link_layer(){
 	// initialize the RF Chip
 	radio.init();
 	radio.setDevAddress(DEVICE_ADDRESS, false);
-	// for start we disable the address checks in the chip hardware
+	// enable the address checks in the chip hardware
 	radio.enableAddressCheck();
 	// we only want to receive data in this script
 	radio.setRxState();
 	radio.rfState = RFSTATE_RX;
 	// Enable wireless reception interrupt
-	Serial.print("CC1101 Radio initialised\n");
-	Serial.print("  - Device Address: ");Serial.println(radio.devAddress);
+	Serial.print(F("CC1101 Radio initialised\n"));
+	Serial.print(F("  - Device Address: "));Serial.println(radio.devAddress);
 	enable_RF_IRQ();
 	return 1;
 }
@@ -108,13 +93,12 @@ void send_on_channel(ChannelState *state, DataPayload *dp){
 		tries--;
 	}
 	if (txd){
-		Serial.print("RADIO>> Sent packet to: ");Serial.println(pkt.data[0]);
-		Serial.print("RADIO>> Sent ");Serial.print(pkt.length);Serial.print(" bytes\n");
+		Serial.print(F("RADIO>> Sent packet to: "));Serial.println(pkt.data[0]);
+		Serial.print(F("RADIO>> Tries: "));Serial.println(5 - tries);
+		Serial.print(F("RADIO>> Sent "));Serial.print(pkt.length);Serial.print(" bytes\n");
 		blink();
 	}
-	else Serial.print("RADIO>> Transmission failed???\n");
- //   PRINTF("Sent to = %d, %s: %d\n", state->remote_addr.sin_family, 
- //   	inet_ntoa(state->remote_addr.sin_addr), ntohs(state->remote_addr.sin_port));
+	else Serial.print(F("RADIO>> Transmission failed???\n"));
 	enable_RF_IRQ();
 }
 
@@ -133,11 +117,11 @@ void broadcast(ChannelState *state, DataPayload *dp){
 		tries--;
 	}
 	if (txd){
-		Serial.print("RADIO>> Sent broadcast packet to network\n");
-		Serial.print("RADIO>> Sent ");Serial.print(pkt.length);Serial.print(" bytes\n");
+		Serial.print(F("RADIO>> Sent broadcast packet to network\n"));
+		Serial.print(F("RADIO>> Sent "));Serial.print(pkt.length);Serial.print(" bytes\n");
 		blink();
 	}
-	else Serial.print("RADIO>> Transmission failed???\n");
+	else Serial.print(F("RADIO>> Transmission failed???\n"));
 	enable_RF_IRQ();
 }
 
@@ -160,17 +144,16 @@ int recv_pkt(DataPayload *dp){
 	disable_RF_IRQ();
 	blink();
 	available = 0;
-	int res = radio.receiveData(&packet);
-	if(res > 0) {
-		Serial.print("RADIO>> Data recvd: ");Serial.println(res);
+	int len = radio.receiveData(&packet);
+	if(len > 0) {
+		//Serial.print("RADIO>> Data recvd: ");Serial.println(len);
 		if (packet.crc_ok && (packet.length > 0)){
 		    memcpy(dp, &(packet.data[2]), (packet.length - 2));
-		    Serial.print("RADIO>> Pkt for addr: ");Serial.println(packet.data[0]);
-		  	
+		    Serial.print(F("RADIO>> Pkt for addr: "));Serial.println(packet.data[0]);
 		  	enable_RF_IRQ();
 		  	return packet.data[1];
   		} else {
-  			Serial.print("RADIO>> Bad packet.\n");
+  			Serial.print(F("RADIO>> Bad packet.\n"));
   			enable_RF_IRQ();
   			return 0;
   		}

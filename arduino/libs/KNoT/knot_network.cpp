@@ -1,16 +1,11 @@
 #include <Arduino.h>
 
-#include <serialPrintf.h>
 #include <string.h>
 #include "knot_network.h"
 
 #define DEBUG 1
 #if DEBUG
-
-#define PRINTF(...) serialPrintf(__VA_ARGS__)
 #define PRINT(...) Serial.print(__VA_ARGS__)
-#else
-#define PRINTF(...)
 #endif
 
 
@@ -19,27 +14,27 @@
 
 
 void increment_seq_no(ChannelState *state, DataPayload *dp){
-   if (state->seqno >= SEQNO_LIMIT)
+   if (state->seqno >= SEQNO_LIMIT){
       state->seqno = SEQNO_START;
-   else 
+   } else {
       state->seqno++;
+   }
    dp->hdr.seqno = state->seqno;
 }
 
 int check_seqno(ChannelState *state, DataPayload *dp){
    if (state->seqno > dp->hdr.seqno){
-      PRINT("--Out of sequence--\n");
-      Serial.print("--State SeqNo: ");Serial.print(state->seqno);
-      Serial.print(" Pkt SeqNo: ");Serial.print(dp->hdr.seqno);
-      Serial.print("--\n--Dropping packet--\n");
+      Serial.print(F("--Out of sequence--\n"));
+      Serial.print(F("--State SeqNo: "));Serial.print(state->seqno);
+      Serial.print(F(" Pkt SeqNo: "));Serial.print(dp->hdr.seqno);
+      Serial.print(F("--\n--Dropping packet--\n"));
       return 0;
-   }
-   else {
+   } else {
       state->seqno = dp->hdr.seqno;
-      Serial.print("--SeqNo ");Serial.print(dp->hdr.seqno);Serial.print("--\n");
+      Serial.print(F("--SeqNo "));Serial.print(dp->hdr.seqno);Serial.print("--\n");
       if (state->seqno >= SEQNO_LIMIT){
          state->seqno = SEQNO_START;
-         Serial.print("--Reset SeqNo\n");
+         Serial.print(F("--Reset SeqNo\n"));
       }
       return 1;
    }
@@ -86,7 +81,7 @@ void ping(ChannelState *state){
 
 void pack_handler(ChannelState *state, DataPayload *dp){
    if (state->state != STATE_PING) {
-      Serial.print("Not in PING state\n");
+      Serial.print(F("Not in PING state\n"));
       return;
    }
    state->state = STATE_CONNECTED;
@@ -95,13 +90,13 @@ void pack_handler(ChannelState *state, DataPayload *dp){
 
 }
 
-void ping_handler(ChannelState *state,DataPayload *dp){
+void ping_handler(ChannelState *state, DataPayload *dp){
    if (state->state != STATE_CONNECTED) {
-      PRINT("Not in Connected state\n");
+      Serial.print(F("Not in Connected state\n"));
       return;
    }
 
-   PRINT("PINGing back\n");
+   Serial.print(F("PINGing back\n"));
    DataPayload *new_dp = &(state->packet);
    clean_packet(new_dp);
    new_dp->hdr.src_chan_num = state->chan_num;
@@ -126,7 +121,7 @@ void close_graceful(ChannelState *state){
 }
 
 void close_handler(ChannelState *state, DataPayload *dp){
-   PRINT("Sending CLOSE ACK...\n");
+   Serial.print(F("Sending CLOSE ACK...\n"));
    DataPayload *new_dp = &(state->packet);
    clean_packet(new_dp);
    new_dp->hdr.src_chan_num = dp->hdr.dst_chan_num;
