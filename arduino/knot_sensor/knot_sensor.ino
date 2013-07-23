@@ -18,7 +18,7 @@
 #define TIMEOUT 0.5
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
-#define HOMECHANNEL 0
+#define HOME_CHANNEL 0
 #define BUFF 256
 
 #define TIMER_INTERVAL 3
@@ -59,9 +59,8 @@ void query_handler(ChannelState *state, DataPayload *dp){
 	strcpy(qr->name, sensor_name); // copy name
 	qr->type = sensor_type;
 	qr->rate = DATA_RATE;
-	new_dp->hdr.dst_chan_num = dp->hdr.src_chan_num; 
-    new_dp->hdr.cmd = QACK; 
-    new_dp->dhdr.tlen = sizeof(QueryResponseMsg);
+	dp_complete(new_dp, state->chan_num, dp->hdr.src_chan_num, 
+				QACK, sizeof(QueryResponseMsg));
 	send_on_knot_channel(state, new_dp);
 }
 
@@ -85,11 +84,8 @@ void connect_handler(ChannelState *state, DataPayload *dp){
 
 	strcpy(ck->name,sensor_name); // copy name
 	ck->accept = 1;
-	new_dp->hdr.src_chan_num = state->chan_num;
-	new_dp->hdr.dst_chan_num = state->remote_chan_num;
-    new_dp->hdr.cmd = CACK; 
-    new_dp->dhdr.tlen = sizeof(ConnectACKMsg);
-
+	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
+				CACK, sizeof(ConnectACKMsg));
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECT;
 	// Set up timer to ensure reliability
@@ -126,17 +122,17 @@ void send_value(ChannelState *state){
 	rmsg->data = (int)getCPUTemp();
 	//rmsg.data = analogRead(LIGHT);
 	//rmsg.data = (int)ambientTemp();
-	strcpy(rmsg->name,sensor_name);
+	strcpy(rmsg->name, sensor_name);
 	
 	// Send a Response SYN or Response
 	if(state->ticks == 0){
 	    new_dp->hdr.cmd = RSYN; // Send to ensure controller is still out there
-	    state->ticks == state->rate * PING_RATE;
+	    state->ticks = state->rate * PING_RATE;
+	    //TODO:Set additional timer to init full PING check
     } else{
     	new_dp->hdr.cmd = RESPONSE;
     	state->ticks--;
     }
-
     new_dp->hdr.src_chan_num = state->chan_num;
 	new_dp->hdr.dst_chan_num = state->remote_chan_num;
     new_dp->dhdr.tlen = sizeof(ResponseMsg);
@@ -145,7 +141,7 @@ void send_value(ChannelState *state){
 }
 
 void rack_handler(ChannelState *state, DataPayload *dp){
-
+	Serial.print(F("The other end is still alive!\n"));
 }
 
 void network_handler(){
@@ -172,7 +168,7 @@ void network_handler(){
 		state = &home_channel_state;
 		state->remote_addr = src;
   	} /* Special case for Homechannel which only responds to QACKs */
-	else if (dp.hdr.dst_chan_num == HOMECHANNEL){
+	else if (dp.hdr.dst_chan_num == HOME_CHANNEL){
 		if (cmd == QUERY){
 			state = &home_channel_state;
 			state->remote_addr = src;
@@ -200,7 +196,7 @@ void network_handler(){
 	}
 	
 	/* PUT IN QUERY CHECK FOR TYPE */
-	Serial.print("Memory left:");
+	Serial.print(F("Memory left:"));
 	Serial.println(freeMemory());
 	switch(cmd){
 		case(QUERY):   		query_handler(state, &dp);		break;
@@ -231,10 +227,6 @@ void reliable_retry(int chan){
 		set_timer(TIMEOUT, s->chan_num, &reliable_retry);
 	}
 }
-
-
-
-
 
 void setup(){
 	Serial.begin(38400);

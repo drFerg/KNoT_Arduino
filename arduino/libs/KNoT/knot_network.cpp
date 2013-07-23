@@ -128,5 +128,5 @@ void close_handler(ChannelState *state, DataPayload *dp){
    new_dp->hdr.dst_chan_num = dp->hdr.src_chan_num;
    (new_dp)->hdr.cmd = DACK;
    (new_dp)->dhdr.tlen = 0;
-   send_on_knot_channel(state,new_dp);
+   send_on_knot_channel(state, new_dp);
 }

@@ -4,7 +4,6 @@
 #include "EEPROM.h"
 #include "cc1101.h"
 
-
 #include "knot_protocol.h"
 #include <TimerOne.h>
 #include "knot_network_pan.h"
@@ -12,11 +11,9 @@
 #include "channeltable.h"
 #include "LED.h"
 
-
-
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
-#define HOMECHANNEL 0
+#define HOME_CHANNEL 0
 
 #define NETWORK_EVENT packetAvailable()
 #define SERIAL_EVENT Serial.available()
@@ -65,21 +62,20 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 
 	DataPayload *new_dp = &(state->packet);
 	clean_packet(new_dp);
-	new_dp->hdr.src_chan_num = state->chan_num;
-	new_dp->hdr.dst_chan_num = state->remote_chan_num;
-	//dp_complete(new_dp,10,QACK,1);
-    new_dp->hdr.cmd = CACK; 
-    new_dp->dhdr.tlen = 0;
+
+	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
+             CACK, NO_PAYLOAD);
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECTED;
 	state->ticks = 100;
 	connected = 1;
-	//Set up ping timeouts for liveness
+	//Set up ping timeouts for liveness if no message received or
+	// connected to actuator
 }
 
 void response_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_CONNECTED && state->state != STATE_PING){
-		PRINTF(F("Not connected to device!\n"));
+		Serial.print(F("Not connected to device!\n"));
 		return;
 	}
 	state->ticks = 100;
@@ -88,16 +84,22 @@ void response_handler(ChannelState *state, DataPayload *dp){
 	/*RESET PING TIMER*/
 }
 
+void send_rack(ChannelState *state){
+	DataPayload *new_dp = &(state->packet);
+	clean_packet(new_dp);
+	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
+             RACK, NO_PAYLOAD);
+	send_on_knot_channel(state,new_dp);
+}
+
 void service_search(ChannelState* state, uint8_t type){
 
   DataPayload *new_dp = &(state->packet); 
   clean_packet(new_dp);
-  //dp_complete(new_dp,10,QACK,1); new_dp->hdr.src_chan_num = state->chan_num;
-  new_dp->hdr.dst_chan_num = 0; 
-  (new_dp)->hdr.cmd = QUERY;
-  (new_dp)->dhdr.tlen = sizeof(QueryMsg); 
+  //dp_complete(new_dp,10,QACK,1); 
+  dp_complete(new_dp, HOME_CHANNEL, HOME_CHANNEL, 
+             QUERY, sizeof(QueryMsg));
   QueryMsg *q = (QueryMsg *) new_dp->data;
-
   q->type = type;
   strcpy(q->name, controller_name);
   knot_broadcast(state,new_dp);
@@ -114,14 +116,11 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
 	s->rate = rate;
 	DataPayload *new_dp = &(s->packet);
 	clean_packet(new_dp);
-
+	dp_complete(new_dp, s->chan_num, HOME_CHANNEL, 
+             CONNECT, sizeof(ConnectMsg));
 	ConnectMsg *cm = (ConnectMsg *)(new_dp->data);
 	strcpy(cm->name, controller_name);
 	cm->rate = rate;
-	new_dp->hdr.dst_chan_num = 0;
-	new_dp->hdr.src_chan_num = s->chan_num;
- 	new_dp->hdr.cmd = CONNECT; 
-    new_dp->dhdr.tlen = sizeof(ConnectMsg);
     Serial.print(F("Sending connect request\n"));
     send_on_knot_channel(s,new_dp);
     s->state = STATE_CONNECT;
@@ -136,12 +135,14 @@ void network_handler(){
 		Serial.print(F("KNoT>> Received packet from "));Serial.println(src);
 	}
 	else {
-		return;
+		return;//The cake was a lie
 	}
 
-	Serial.print(F("Data is "));Serial.print(dp.dhdr.tlen);Serial.print(F(" bytes long\n"));
+	Serial.print(F("Data is "));Serial.print(dp.dhdr.tlen);
+	Serial.print(F(" bytes long\n"));
 	unsigned short cmd = dp.hdr.cmd;
-	Serial.print(F("Received a "));Serial.print(cmdnames[cmd]);Serial.print(F(" command.\n"));
+	Serial.print(F("Received a "));Serial.print(cmdnames[cmd]);
+	Serial.print(F(" command.\n"));
 	Serial.print(F("Message for channel "));Serial.println(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
@@ -155,7 +156,7 @@ void network_handler(){
 		state = &home_channel_state;
 		state->remote_addr = src;
   	} /* Special case for Homechannel which only responds to QACKs */
-  	else if (dp.hdr.dst_chan_num == HOMECHANNEL && cmd == QACK){
+  	else if (dp.hdr.dst_chan_num == HOME_CHANNEL && cmd == QACK){
 		state = &home_channel_state;
 		state->remote_addr = src;
   	} /* The rest of the channels */
@@ -179,11 +180,12 @@ void network_handler(){
 		case(QACK):     	qack_handler(state, &dp);break;
 		case(CACK):     	cack_handler(state, &dp);break;
 		case(RESPONSE): 	response_handler(state, &dp);break;
-		case(RSYN):		 	response_handler(state, &dp);break;
+		case(RSYN):		 	response_handler(state, &dp);send_rack(state);break;
 		// case(CMDACK):   	command_ack_handler(state,dp);break;
 		case(PING):     	ping_handler(state, &dp);break;
 		// case(PACK):     	pack_handler(state, &dp);break;
-		// case(DISCONNECT): 	close_handler(state,&dp);
+		case(DISCONNECT): 	close_handler(state,&dp);break;
+		default: 			Serial.print(F("Unknown CMD type\n"));
 	}
 
 }

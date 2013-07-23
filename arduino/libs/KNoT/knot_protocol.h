@@ -52,8 +52,8 @@
 #define MAX_DATA_SIZE 32
 #define RESPONSE_DATA_SIZE 16
 #define NAME_SIZE     16
-
-extern char *cmdnames[15];
+#define NO_PAYLOAD     0
+extern char *cmdnames[16];
 
 typedef struct ph {
    uint8_t seqno;   /* sequence number */
@@ -111,7 +111,7 @@ typedef struct data_response{
 }DataResponseMsg;
 
 
-
-
+void dp_complete(DataPayload *dp, uint8_t src, uint8_t dst, 
+             uint8_t cmd, uint8_t len);
 
 #endif /* KNOT_PROTOCOL_H */

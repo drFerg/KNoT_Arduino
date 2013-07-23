@@ -1,8 +1,8 @@
 /*
 * author Fergus William Leahy
 */
-#ifndef KNOT_UDP_NETWORK_H
-#define KNOT_UDP_NETWORK_H
+#ifndef KNOT_NETWORK_PAN_H
+#define KNOT_NETWORK_PAN_H
 
 #include <stdio.h>
 #include <string.h>
@@ -42,4 +42,4 @@ void copy_address(ChannelState *state);
 void copy_address_ab(Address a, Address b);
 void copy_address_broad(Address a);
 
-#endif /*KNOT_UDP_NETWORK*/
+#endif /*KNOT_NETWORK_PAN_H*/
