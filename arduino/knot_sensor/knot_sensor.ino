@@ -40,12 +40,10 @@ ChannelState home_channel_state;
 float ambientTemp(){
 	int reading = analogRead(TEMP_PIN);
 	return (100 * reading * 3.3)/1024;
-
 }
 
 void query_handler(ChannelState *state, DataPayload *dp){
-	QueryMsg *q = (QueryMsg* )(dp->data);
-	Serial.println(q->type);
+	QueryMsg *q = (QueryMsg*)(dp->data);
 	if (q->type != sensor_type){
 		Serial.print(F("Query doesn't match type\n"));
 		return;
@@ -67,25 +65,26 @@ void query_handler(ChannelState *state, DataPayload *dp){
 
 void connect_handler(ChannelState *state, DataPayload *dp){
 	ConnectMsg *cm = (ConnectMsg*)dp->data;
-	Serial.print(cm->name);Serial.print(F(" wants to connect from channel "));Serial.println(dp->hdr.src_chan_num);
+	Serial.print(cm->name);Serial.print(F(" wants to connect from channel "));
+	Serial.println(dp->hdr.src_chan_num);
 	Serial.print(F("Replying on channel "));Serial.println(state->chan_num);
 	/* Request src must be saved to message back */
 
 	state->remote_chan_num = dp->hdr.src_chan_num;
 	if (cm->rate > DATA_RATE){
 		state->rate = cm->rate;
-	} else{
+	} else {
 		state->rate = DATA_RATE;
 		Serial.println(cm->rate);
 	}
 	DataPayload *new_dp = &(state->packet);
 	ConnectACKMsg *ck = (ConnectACKMsg *)&(new_dp->data);
 	clean_packet(new_dp);
+	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
+				CACK, sizeof(ConnectACKMsg));
 
 	strcpy(ck->name,sensor_name); // copy name
 	ck->accept = 1;
-	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
-				CACK, sizeof(ConnectACKMsg));
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECT;
 	// Set up timer to ensure reliability
@@ -148,18 +147,25 @@ void network_handler(){
 	DataPayload dp;
 	uint8_t src = recv_pkt(&dp);
 	if (src){
-		Serial.print(F("KNoT>> Received packet from "));Serial.println(src);
+		Serial.print(F("KNoT>> Received packet from "));
+		Serial.println(src);
 	}
 	else {
 		return;
 	}
 	
-	Serial.print(F("Data is "));Serial.print(dp.dhdr.tlen);Serial.print(F(" bytes long\n"));
+	Serial.print(F("Data is "));
+	Serial.print(dp.dhdr.tlen);
+	Serial.print(F(" bytes long\n"));
 	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
-	Serial.print(F("Received a "));Serial.print(cmdnames[cmd]);Serial.print(F(" command.\n"));
-	Serial.print(F("Message for channel "));Serial.println(dp.hdr.dst_chan_num);
+	Serial.print(F("Received a "));
+	Serial.print(cmdnames[cmd]);
+	Serial.print(F(" command.\n"));
+	Serial.print(F("Message for channel "));
+	Serial.println(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
+	/* Always allow disconnections to prevent crazies */
 	if (cmd == DISCONNECT){
 		state = get_channel_state(dp.hdr.dst_chan_num);
 		if (state){
@@ -167,33 +173,29 @@ void network_handler(){
 		}
 		state = &home_channel_state;
 		state->remote_addr = src;
-  	} /* Special case for Homechannel which only responds to QACKs */
-	else if (dp.hdr.dst_chan_num == HOME_CHANNEL){
+  	} else if (dp.hdr.dst_chan_num == HOME_CHANNEL){
+  		/* Homechannel only responds to QUERYs and CONNECTs */
 		if (cmd == QUERY){
 			state = &home_channel_state;
 			state->remote_addr = src;
-  		}
-  		else if (cmd == CONNECT){
+  		} else if (cmd == CONNECT){
   			state = new_channel();
   			Serial.print(F("Sensor: New Channel\n"));
   			state->remote_addr = src;
-  		}
-  	}
-		else {
+  		} else return; //Otherwise quit
+  	} else {
 		state = get_channel_state(dp.hdr.dst_chan_num);
 		if (state == NULL){
 			Serial.print(F("Channel doesn't exist\n"));
 			return;
+		} else if (check_seqno(state, &dp) == 0){
+			Serial.print(F("Oh no\n"));
+			return;
+		} else {
+		 // CHECK IF RIGHT CONNECTION
 		}
-		// 	//copy_link_address(state); // CHECK IF RIGHT CONNECTION
-		
  	}
 
-	Serial.print(F("Seqno: "));Serial.println(dp.hdr.seqno);
-	if (check_seqno(state, &dp) == 0){
-		Serial.print(F("Oh no\n"));
-		return;
-	}
 	
 	/* PUT IN QUERY CHECK FOR TYPE */
 	Serial.print(F("Memory left:"));
@@ -206,7 +208,7 @@ void network_handler(){
 		case(PACK):   		pack_handler(state, &dp);		break;
 		case(RACK):			rack_handler(state, &dp);		break;
 		case(DISCONNECT): 	close_handler(state,&dp);		break;
-		default:											break;
+		default:			Serial.print(F("Unknown CMD type\n"));
 	}
 
 }

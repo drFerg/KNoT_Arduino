@@ -21,7 +21,6 @@
 
 char controller_name[] = "The Boss";
 ChannelState home_channel_state;
-int connected = 0;
 int serial_ready = 0;
 char buf[50];
 int serial_index = 0;
@@ -56,8 +55,12 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	ConnectACKMsg *ck = (ConnectACKMsg*)(dp->data);
 	if (ck->accept == 0){
 		Serial.print(F("SCREAM! THEY DIDN'T EXCEPT!!"));
+		remove_channel(state->chan_num);
+		return;
 	}
-	Serial.print(ck->name);Serial.print(F(" accepts connection request on channel ")); Serial.println(dp->hdr.src_chan_num);
+	Serial.print(ck->name);
+	Serial.print(F(" accepts connection request on channel "));
+	Serial.println(dp->hdr.src_chan_num);
 	state->remote_chan_num = dp->hdr.src_chan_num;
 
 	DataPayload *new_dp = &(state->packet);
@@ -68,7 +71,6 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECTED;
 	state->ticks = 100;
-	connected = 1;
 	//Set up ping timeouts for liveness if no message received or
 	// connected to actuator
 }
@@ -85,6 +87,7 @@ void response_handler(ChannelState *state, DataPayload *dp){
 }
 
 void send_rack(ChannelState *state){
+	// TODO: Reset internal timer/ticks of when to expect RSYN
 	DataPayload *new_dp = &(state->packet);
 	clean_packet(new_dp);
 	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
@@ -93,10 +96,8 @@ void send_rack(ChannelState *state){
 }
 
 void service_search(ChannelState* state, uint8_t type){
-
   DataPayload *new_dp = &(state->packet); 
   clean_packet(new_dp);
-  //dp_complete(new_dp,10,QACK,1); 
   dp_complete(new_dp, HOME_CHANNEL, HOME_CHANNEL, 
              QUERY, sizeof(QueryMsg));
   QueryMsg *q = (QueryMsg *) new_dp->data;
@@ -132,7 +133,8 @@ void network_handler(){
 	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
 	if (src){
-		Serial.print(F("KNoT>> Received packet from "));Serial.println(src);
+		Serial.print(F("KNoT>> Received packet from "));
+		Serial.println(src);
 	}
 	else {
 		return;//The cake was a lie
@@ -169,11 +171,11 @@ void network_handler(){
 		if (check_seqno(state, &dp) == 0) {
 			Serial.print(F("OH NOES\n"));
 			return;
-		} else { //CHECK IF RIGHT CONNECTION
-			//copy_link_address(state);
+		} else { 
+			//CHECK IF RIGHT CONNECTION	
 		}
 	}
-	//continue;
+
 	switch(cmd){
 		case(QUERY):    	break;
 		case(CONNECT): 	 	break;
@@ -183,7 +185,7 @@ void network_handler(){
 		case(RSYN):		 	response_handler(state, &dp);send_rack(state);break;
 		// case(CMDACK):   	command_ack_handler(state,dp);break;
 		case(PING):     	ping_handler(state, &dp);break;
-		// case(PACK):     	pack_handler(state, &dp);break;
+		case(PACK):     	pack_handler(state, &dp);break;
 		case(DISCONNECT): 	close_handler(state,&dp);break;
 		default: 			Serial.print(F("Unknown CMD type\n"));
 	}
