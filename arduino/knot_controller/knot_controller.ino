@@ -3,13 +3,14 @@
 
 #include "EEPROM.h"
 #include "cc1101.h"
-
+#include <crc16.h>
 #include "knot_protocol.h"
 #include <TimerOne.h>
 #include "knot_network_pan.h"
 #include "knot_network.h"
 #include "channeltable.h"
 #include "LED.h"
+
 
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
