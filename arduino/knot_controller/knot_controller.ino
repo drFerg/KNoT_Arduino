@@ -12,6 +12,10 @@
 #include "LED.h"
 #include "serialPacket.h"
 
+
+#define SERIAL_SEARCH 1
+#define SERIAL_CONNECT 2
+
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
 #define HOME_CHANNEL 0
@@ -128,6 +132,11 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
     s->state = STATE_CONNECT;
 	s->ticks = 10;
 }
+
+void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
+	init_connection_to(&home_channel_state, addr, rate);
+}
+
 void network_handler(){
 	DataPayload dp;
 
@@ -193,47 +202,15 @@ void network_handler(){
 
 }
 
-
-void read_serial(){
-	while (Serial.available()){
-		buf[serial_index++] = Serial.read();
-		if (buf[serial_index-1] == ';'){
-			serial_ready = 1;
-		}
-	}
-	
-
-}
-
-
 void serial_handler(){
-	Serial.println(buf);
-	if (buf[0] == 's'){
-		service_search(&home_channel_state, TEMP);
-	}
-	else if (buf[0] == 'c'){
-		init_connection_to(&home_channel_state, addr, 10);
-	}
-	// switch (inByte){
-	// 	case 's': service_search(&home_channel_state, );
-	// 	default: Serial.print("Invalid command\n");Serial.print(inByte);
-	// }
-}
-
-
-/** PUBLIC METHODS **/
-void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
-	init_connection_to(&home_channel_state, addr, rate);
-}
-
-void print_data(){
 	DataPayload dp = serialpkt;
-	Serial.print(F("Data is "));Serial.print(dp.dhdr.tlen);
-	Serial.print(F(" bytes long\n"));
+	Serial.print(F("SERIAL> Command received.\n"));
 	unsigned short cmd = dp.hdr.cmd;
-	Serial.print(F("Received a "));Serial.print(cmdnames[cmd]);
-	Serial.print(F(" command.\n"));
-	Serial.print(F("Message for channel "));Serial.println(dp.hdr.dst_chan_num);
+	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp.hdr.dst_chan_num);
+	switch (cmd){
+		case SERIAL_SEARCH:  service_search(&home_channel_state, TEMP);break;
+		//case SERIAL_CONNECT: init_connection_to(&home_channel_state, addr, 10);break;
+	}
 }
 
 
@@ -252,7 +229,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	Serial.println(F(">> Initialised"));
-	attach_serial(print_data, (char*)(&serialpkt));
+	attach_serial(serial_handler, (char*)(&serialpkt));
 	}
 
 unsigned long thresh = 3000;

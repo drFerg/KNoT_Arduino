@@ -10,7 +10,8 @@
 #define MSG_COMPLETE 2
 #define ESC_NEXT 3
 
-char buffer[50];
+#define BUFF_LEN 50
+char buffer[BUFF_LEN];
 char *callbackPkt;
 uint8_t index = 0;
 uint8_t status = 0;
@@ -29,11 +30,14 @@ uint8_t process_byte(char data){
 	if (status == WAITING_ON_START){
 		if (data == START_FLAG){
 			status = IN_MSG;
+			index = 0;
+			memset(buffer, '\0', BUFF_LEN);
 		} 
 	}
 	else if (status == IN_MSG){
 		if (data == END_FLAG){
 			status = MSG_COMPLETE;
+			index--;
 		} 
 		else if (data == ESC_FLAG){
 			status = ESC_NEXT;
@@ -57,10 +61,9 @@ void recv_serial(){
 	while (Serial.available() > 0){
 			data = Serial.read();
 			process_byte(data);
-			Serial.println(status);
 		if (status == MSG_COMPLETE){
 			if(crc_ok()){
-				memcpy(callbackPkt, buffer, index - 1);
+				memcpy(callbackPkt, buffer, index);
 				packetCallback();
 			}
 			status = WAITING_ON_START;
