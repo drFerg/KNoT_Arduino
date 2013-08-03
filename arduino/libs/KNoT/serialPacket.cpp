@@ -33,7 +33,7 @@ uint8_t process_byte(char data){
 	}
 	else if (status == IN_MSG){
 		if (data == END_FLAG){
-			status == MSG_COMPLETE;
+			status = MSG_COMPLETE;
 		} 
 		else if (data == ESC_FLAG){
 			status = ESC_NEXT;
@@ -54,9 +54,10 @@ int crc_ok(){
 
 void recv_serial(){
 	char data;
-	while (Serial.available()){
+	while (Serial.available() > 0){
 			data = Serial.read();
 			process_byte(data);
+			Serial.println(status);
 		if (status == MSG_COMPLETE){
 			if(crc_ok()){
 				memcpy(callbackPkt, buffer, index - 1);
