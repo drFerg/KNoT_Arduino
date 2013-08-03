@@ -204,7 +204,7 @@ void network_handler(){
 
 void serial_handler(){
 	DataPayload dp = serialpkt;
-	Serial.print(F("SERIAL> Command received.\n"));
+	Serial.print(F("SERIAL> Serial command received.\n"));
 	unsigned short cmd = dp.hdr.cmd;
 	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp.hdr.dst_chan_num);
 	switch (cmd){
@@ -228,7 +228,7 @@ void setup(){
 	home_channel_state.state = STATE_IDLE;
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
-	Serial.println(F(">> Initialised"));
+	Serial.println(F(">> Controller initialised!"));
 	attach_serial(serial_handler, (char*)(&serialpkt));
 	}
 
@@ -237,15 +237,5 @@ unsigned long timer = 0;
 void loop(){
 	if (NETWORK_EVENT)
 		network_handler();
-	// else if (SERIAL_EVENT)
-	// 	read_serial();
-	// else if (serial_ready){
-	// 	serial_ready = 0;
-	// 	serial_index = 0;
-	// 	memset(&buf,50,'\0');
-	// 	serial_handler();
-	// }
-	// else if (TIMER_EVENT)
-	// 	check_timer();
 	recv_serial();
 }
