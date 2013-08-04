@@ -5,6 +5,7 @@
 #include "cc1101.h"
 
 #include "knot_protocol.h"
+#include "payloads.h"
 #include <TimerOne.h>
 #include "knot_network_pan.h"
 #include "knot_network.h"
@@ -133,10 +134,6 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
 	s->ticks = 10;
 }
 
-void connect_to_dev(uint8_t addr, int rate, void(*callback)(byte*data)){
-	init_connection_to(&home_channel_state, addr, rate);
-}
-
 void network_handler(){
 	DataPayload dp;
 
@@ -202,14 +199,24 @@ void network_handler(){
 
 }
 
+void serial_service_search(DataPayload *dp){
+	service_search(&homechannel, ((SerialQuery*)dp)->type); 
+}
+
+void serial_init_connection_to(DataPayload *dp){
+	SerialConnect *sc = dp;
+	init_connection_to(&homechannel, sc->addr, sc->rate);
+}
+
 void serial_handler(){
 	DataPayload dp = serialpkt;
 	Serial.print(F("SERIAL> Serial command received.\n"));
 	unsigned short cmd = dp.hdr.cmd;
 	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp.hdr.dst_chan_num);
+
 	switch (cmd){
-		case SERIAL_SEARCH:  service_search(&home_channel_state, TEMP);break;
-		//case SERIAL_CONNECT: init_connection_to(&home_channel_state, addr, 10);break;
+		case(SERIAL_SEARCH):  serial_service_search(&dp);break;
+		case(SERIAL_CONNECT): serial_init_connection_to(&dp);break;
 	}
 }
 
@@ -232,8 +239,6 @@ void setup(){
 	attach_serial(serial_handler, (char*)(&serialpkt));
 	}
 
-unsigned long thresh = 3000;
-unsigned long timer = 0;
 void loop(){
 	if (NETWORK_EVENT)
 		network_handler();
