@@ -200,12 +200,12 @@ void network_handler(){
 }
 
 void serial_service_search(DataPayload *dp){
-	service_search(&homechannel, ((SerialQuery*)dp)->type); 
+	service_search(&home_channel_state, ((SerialQuery*)dp)->type); 
 }
 
 void serial_init_connection_to(DataPayload *dp){
-	SerialConnect *sc = dp;
-	init_connection_to(&homechannel, sc->addr, sc->rate);
+	SerialConnect *sc = (SerialConnect*)dp;
+	init_connection_to(&home_channel_state, sc->addr, sc->rate);
 }
 
 void serial_handler(){
@@ -242,5 +242,6 @@ void setup(){
 void loop(){
 	if (NETWORK_EVENT)
 		network_handler();
-	recv_serial();
+	else if (SERIAL_EVENT)
+		recv_serial();
 }
