@@ -11,7 +11,9 @@
 #define ESC_NEXT 3
 
 #define BUFF_LEN 50
-char buffer[BUFF_LEN];
+char recv_buffer[BUFF_LEN];
+byte send_buffer[BUFF_LEN];
+
 char *callbackPkt;
 uint8_t index = 0;
 uint8_t status = 0;
@@ -31,7 +33,7 @@ uint8_t process_byte(char data){
 		if (data == START_FLAG){
 			status = IN_MSG;
 			index = 0;
-			memset(buffer, '\0', BUFF_LEN);
+			memset(recv_buffer, '\0', BUFF_LEN);
 		} 
 	}
 	else if (status == IN_MSG){
@@ -43,11 +45,11 @@ uint8_t process_byte(char data){
 			status = ESC_NEXT;
 		} 
 		else {
-			buffer[index++] = data;
+			recv_buffer[index++] = data;
 		}
 	} 
 	else if (status == ESC_NEXT){
-		buffer[index++] = data;
+		recv_buffer[index++] = data;
 	}
 	return status;
 }
@@ -63,10 +65,25 @@ void recv_serial(){
 			process_byte(data);
 		if (status == MSG_COMPLETE){
 			if(crc_ok()){
-				memcpy(callbackPkt, buffer, index);
+				memcpy(callbackPkt, recv_buffer, index);
 				packetCallback();
 			}
 			status = WAITING_ON_START;
 		}
 	}
+}
+
+void write_to_serial(char *data, int len){
+	int d = 0;
+	int b = 0;
+	memset(send_buffer, '\0', BUFF_LEN);
+	send_buffer[b++] = START_FLAG;
+	for (;d < len; d++){
+		if (data[d] == START_FLAG || data[d] == END_FLAG || data[d] == ESC_FLAG){
+			send_buffer[b++] = ESC_FLAG;
+		}
+		send_buffer[b++] = data[d];
+	}
+	send_buffer[b++] = END_FLAG;
+	Serial.write(send_buffer, b);
 }

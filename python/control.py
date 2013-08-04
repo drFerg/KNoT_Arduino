@@ -11,9 +11,8 @@ gateway = serial.Serial(sys.argv[1], sys.argv[2], timeout=5)
 msg = sw.build_message_to_send(0,1,0,1);
 while True:
 	s = raw_input("Enter a command: ")
-
-	gateway.write(msg)
-	print msg.encode('hex')
+	if (s == 'q'):
+		gateway.write(sw.build_query(1))
 
 
 while True:

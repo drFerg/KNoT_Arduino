@@ -21,6 +21,10 @@ data_payload = Struct('data_payload',
     Embed(data_header),
     )
 
+serial_query = Struct('serial_query',
+    ULInt8('type')
+    )
+
 if __name__ == "__main__":
     raw = data_payload.build(Container(
         seqno=1,

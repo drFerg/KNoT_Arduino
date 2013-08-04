@@ -41,15 +41,7 @@ void qack_handler(ChannelState *state, DataPayload *dp){
 	Serial.print(F("Query ACK received\n"));
 	state->ticks = 100;
 	QueryResponseMsg *qr = (QueryResponseMsg *)&dp->data;
-
-	Serial.print(F("Sensor name: "));Serial.println(qr->name);
-	Serial.print(F("Sensor type: "));Serial.println(qr->type);
-	char str[50];
-	sprintf(str,"[QACK,%d,%d,%s,%d]\n", state->remote_addr,
-									state->remote_chan_num,
-									qr->name,
-									qr->type);
-	Serial.print(str);
+	write_to_serial((char *)qr, sizeof(QueryResponseMsg));
 	addr = state->remote_addr;
 }
 
