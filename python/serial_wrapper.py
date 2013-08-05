@@ -19,7 +19,8 @@ def build_query(thingType):
         dst_chan_num=0,
         cmd=1,
         chksum=0,
-        tlen=1)
+        tlen=1,
+        data="")
     )
     
     query = serial_query.build(Container(
@@ -50,7 +51,8 @@ def build_message_to_send(
         dst_chan_num=dst_chan_num,
         cmd=cmd,
         chksum=0,
-        tlen=0)
+        tlen=0,
+        data="")
     )
     # Compute the CRC field and append it to the
     # message instead of the empty CRC specified

@@ -19,10 +19,17 @@ data_header = Struct('data_header',
 data_payload = Struct('data_payload',
     Embed(payload_header),
     Embed(data_header),
+    OptionalGreedyRange(ULInt8('data'))
     )
 
 serial_query = Struct('serial_query',
     ULInt8('type')
+    )
+
+query_response = Struct('query_response',
+    ULInt8('type'),
+    ULInt16('rate'),
+    CString('name'),
     )
 
 if __name__ == "__main__":

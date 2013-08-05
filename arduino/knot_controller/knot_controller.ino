@@ -41,7 +41,7 @@ void qack_handler(ChannelState *state, DataPayload *dp){
 	Serial.print(F("Query ACK received\n"));
 	state->ticks = 100;
 	QueryResponseMsg *qr = (QueryResponseMsg *)&dp->data;
-	write_to_serial((char *)qr, sizeof(QueryResponseMsg));
+	write_to_serial((char *)dp, sizeof(DataPayload));
 	addr = state->remote_addr;
 }
 
