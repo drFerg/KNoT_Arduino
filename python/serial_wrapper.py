@@ -3,13 +3,36 @@ from protocolwrapper import (
     ProtocolWrapper, ProtocolStatus)
 from knot_packet import (
     payload_header, data_header, 
-    data_payload, serial_query, Container)
+    data_payload, serial_query, serial_connect, Container)
 
 
 PROTOCOL_HEADER = '\x12'
 PROTOCOL_FOOTER = '\x13'
 PROTOCOL_DLE = '\x7D'
 
+def build_connect(addr, rate):
+    dp = data_payload.build(Container(
+        seqno=1,
+        src_chan_num=0,
+        dst_chan_num=0,
+        cmd=2,
+        chksum=0,
+        tlen=2,
+        data="")
+    )
+    
+    connect = serial_connect.build(Container(
+        addr=addr, 
+        rate=rate)
+    )
+
+    msg = dp + connect  
+    print data_payload.parse(msg)
+    pw = ProtocolWrapper(   
+        header=PROTOCOL_HEADER,
+        footer=PROTOCOL_FOOTER,
+        dle=PROTOCOL_DLE)
+    return pw.wrap(msg)
 
 
 def build_query(thingType):
@@ -26,7 +49,7 @@ def build_query(thingType):
     query = serial_query.build(Container(
         type=thingType)
     )
-    msg = dp + query   
+    msg = dp + query 
     pw = ProtocolWrapper(   
         header=PROTOCOL_HEADER,
         footer=PROTOCOL_FOOTER,

@@ -19,11 +19,16 @@ data_header = Struct('data_header',
 data_payload = Struct('data_payload',
     Embed(payload_header),
     Embed(data_header),
-    OptionalGreedyRange(ULInt8('data'))
+    OptionalGreedyRange(ULInt8('data')),
     )
 
 serial_query = Struct('serial_query',
-    ULInt8('type')
+    ULInt8('type'),
+    )
+
+serial_connect = Struct('serial_connect',
+    ULInt8('addr'),
+    ULInt8('rate'),
     )
 
 query_response = Struct('query_response',

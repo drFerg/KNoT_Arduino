@@ -65,7 +65,7 @@ void recv_serial(){
 			process_byte(data);
 		if (status == MSG_COMPLETE){
 			if(crc_ok()){
-				memcpy(callbackPkt, recv_buffer, index);
+				memcpy(callbackPkt, recv_buffer, index+1);
 				packetCallback();
 			}
 			status = WAITING_ON_START;

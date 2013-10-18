@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "EEPROM.h"
-#include "cc1101.h"
+#include <EEPROM.h>
+#include <cc1101.h>
 
 #include "knot_protocol.h"
 #include "payloads.h"
@@ -31,7 +31,7 @@ int serial_ready = 0;
 char buf[50];
 int serial_index = 0;
 int addr = 0;
-DataPayload serialpkt;
+char serialpkt[32];
 
 void qack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_QUERY) {
@@ -90,7 +90,7 @@ void send_rack(ChannelState *state){
 	clean_packet(new_dp);
 	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
              RACK, NO_PAYLOAD);
-	send_on_knot_channel(state,new_dp);
+	send_on_knot_channel(state, new_dp);
 }
 
 void service_search(ChannelState* state, uint8_t type){
@@ -121,7 +121,7 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
 	strcpy(cm->name, controller_name);
 	cm->rate = rate;
     Serial.print(F("Sending connect request\n"));
-    send_on_knot_channel(s,new_dp);
+    send_on_knot_channel(s, new_dp);
     s->state = STATE_CONNECT;
 	s->ticks = 10;
 }
@@ -196,14 +196,16 @@ void serial_service_search(DataPayload *dp){
 }
 
 void serial_init_connection_to(DataPayload *dp){
-	SerialConnect *sc = (SerialConnect*)dp;
+	SerialConnect *sc = (SerialConnect*)dp->data;
+	Serial.print("Serial init conn to: ");Serial.println(dp->data[1]);
 	init_connection_to(&home_channel_state, sc->addr, sc->rate);
 }
 
 void serial_handler(){
-	DataPayload dp = serialpkt;
+	DataPayload dp = *(DataPayload *)serialpkt;
 	Serial.print(F("SERIAL> Serial command received.\n"));
 	unsigned short cmd = dp.hdr.cmd;
+	Serial.print("SERIAL> Packet length:");Serial.println(dp.dhdr.tlen);
 	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp.hdr.dst_chan_num);
 
 	switch (cmd){
@@ -228,7 +230,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	Serial.println(F(">> Controller initialised!"));
-	attach_serial(serial_handler, (char*)(&serialpkt));
+	attach_serial(serial_handler, serialpkt);
 	}
 
 void loop(){
