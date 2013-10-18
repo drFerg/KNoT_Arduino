@@ -16,7 +16,7 @@
 // #define enable_SRF_IRQ() 	attachInterrupt(0, sleepyRadioISR, FALLING);
 // #define disable_SRF_IRQ() 	detachInterrupt(0);
 
-
+#define BROADCAST_ADDR 0
 #define LEDOUTPUT 4
 #define MAX_TX_RETRIES 5
 CC1101 radio;
@@ -76,53 +76,40 @@ void copy_address_broad(Address a){
    // uip_ipaddr_copy((uip_ipaddr_t *)a, &broad);
 }
 
-
-/**Send a message to the connection in state **/
-void send_on_channel(ChannelState *state, DataPayload *dp){
-	disable_RF_IRQ();
+void send_to_address(int addr, DataPayload *dp){
+	disable_RF_IRQ(); //Disable RX interrupts
 	CCPACKET pkt;
 	pkt.length = 2 + sizeof(PayloadHeader) + sizeof(DataHeader) + dp->dhdr.tlen;
-	pkt.data[0] = state->remote_addr; //set dest addr
+	pkt.data[0] = addr; //set dest addr
 	pkt.data[1] = radio.devAddress;
 	memcpy(&(pkt.data[2]), dp, (pkt.length - 2)); // append payload
-	bool txd = false;
+	bool suc = false;
 	int tries = MAX_TX_RETRIES;
 
-	while((!txd) && tries > 0){
-		txd = radio.sendData(pkt);
+	while((!suc) && tries > 0){
+		suc = radio.sendData(pkt);
 		tries--;
 	}
-	if (txd){
+	if (suc){
 		Serial.print(F("RADIO>> Sent packet to: "));Serial.println(pkt.data[0]);
 		Serial.print(F("RADIO>> Tries: "));Serial.println(5 - tries);
 		Serial.print(F("RADIO>> Sent "));Serial.print(pkt.length);Serial.print(" bytes\n");
 		blink();
 	}
-	else Serial.print(F("RADIO>> Transmission failed???\n"));
-	enable_RF_IRQ();
+	else {
+		Serial.print(F("RADIO>> Transmission failed???\n"));
+	}
+	enable_RF_IRQ(); //Enable RX interrupts
+}
+
+
+/**Send a message to the connection in state **/
+void send_on_channel(ChannelState *state, DataPayload *dp){
+	send_on_channel(state->remote_addr, dp);
 }
 
 void broadcast(ChannelState *state, DataPayload *dp){
-	disable_RF_IRQ();
-	CCPACKET pkt;
-	pkt.length = 2 + sizeof(PayloadHeader) + sizeof(DataHeader) + dp->dhdr.tlen;
-	pkt.data[0] = 0; // set broadcast addr
-	pkt.data[1] = radio.devAddress;
-	memcpy(&(pkt.data[2]), dp, (pkt.length - 2)); //append payload
-	bool txd = false;
-	int tries = MAX_TX_RETRIES;
-
-	while((!txd) && tries > 0){
-		txd = radio.sendData(pkt);
-		tries--;
-	}
-	if (txd){
-		Serial.print(F("RADIO>> Sent broadcast packet to network\n"));
-		Serial.print(F("RADIO>> Sent "));Serial.print(pkt.length);Serial.print(" bytes\n");
-		blink();
-	}
-	else Serial.print(F("RADIO>> Transmission failed???\n"));
-	enable_RF_IRQ();
+	send_to_address(BROADCAST_ADDR, dp);
 }
 
 void resend(ChannelState *state){
@@ -130,12 +117,6 @@ void resend(ChannelState *state){
 }
 
 void send_uni(ChannelState *state, DataPayload *dp){
-   // int dplen = sizeof(PayloadHeader) + sizeof(DataHeader) + uip_ntohs(dp->dhdr.tlen);
-   // uip_udp_packet_send(udp_conn, (char*)dp, dplen);
-   // PRINTF("Sent %s to ipaddr=%d.%d.%d.%d:%u\n", 
-   //    cmdnames[dp->hdr.cmd], 
-   //    uip_ipaddr_to_quad(&(udp_conn->ripaddr)),
-   //    uip_htons(udp_conn->rport));
 }
 
 int recv_pkt(DataPayload *dp){

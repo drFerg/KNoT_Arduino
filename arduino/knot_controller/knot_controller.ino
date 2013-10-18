@@ -132,7 +132,7 @@ void network_handler(){
 	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
 	if (src){
-		Serial.print(F("KNoT>> Received packet from "));
+		Serial.print(F("KNoT>> Received packet from Thing: "));
 		Serial.println(src);
 	}
 	else {
