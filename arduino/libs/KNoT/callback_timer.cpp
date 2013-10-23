@@ -109,8 +109,8 @@ int run_next_expired(){
 }
 
 void timer_handler(){
-	int chan = 1;
-	while (chan){
-		chan = run_next_expired();
+	int channels_still_left = 1;
+	while (channels_still_left){
+		channels_still_left = run_next_expired();
 	}
 }
