@@ -10,8 +10,10 @@
 #define PRINTF(...)
 #endif
 
-#define enable_RF_IRQ() 	attachInterrupt(0, radioISR, FALLING);
-#define disable_RF_IRQ() 	detachInterrupt(0);
+#define enable_RF_IRQ() 	attachInterrupt(0, radioISR, FALLING)
+#define disable_RF_IRQ() 	detachInterrupt(0)
+
+#define copy_address(a, b)  (a = b)
 
 // #define enable_SRF_IRQ() 	attachInterrupt(0, sleepyRadioISR, FALLING);
 // #define disable_SRF_IRQ() 	detachInterrupt(0);
@@ -43,37 +45,19 @@ int packetAvailable(){
 
 void set_dev_addr(int addr){
 	radio.setDevAddress(addr, false);
-	Serial.print(F("Device address now: "));Serial.println(radio.readDevAddress());
+	Serial.print(F("RADIO>> Device address now: "));Serial.println(radio.readDevAddress());
 }
 
 int init_link_layer(){
-	// initialize the RF Chip
-	radio.init();
+	radio.init(); // initialize the RF Chip
 	radio.setDevAddress(DEVICE_ADDRESS, false);
-	// enable the address checks in the chip hardware
-	radio.enableAddressCheck();
-	// we only want to receive data in this script
+	radio.enableAddressCheck(); // enable the address checks in the chip hardware
 	radio.setRxState();
-	radio.rfState = RFSTATE_RX;
-	// Enable wireless reception interrupt
-	Serial.print(F("CC1101 Radio initialised\n"));
-	Serial.print(F("  - Device Address: "));Serial.println(radio.devAddress);
+	radio.rfState = RFSTATE_RX; // Enable wireless reception interrupt
+	Serial.print(F("RADIO>> CC1101 Radio initialised\n"));
+	Serial.print(F("RADIO>>   - Device Address: "));Serial.println(radio.devAddress);
 	enable_RF_IRQ();
 	return 1;
-}
-
-void copy_address(ChannelState *state){
-   // state->remote_port = UDP_HDR->srcport;
-   // uip_ipaddr_copy(&(state->remote_addr) , &(UDP_HDR->srcipaddr));
-}
-
-void copy_address_ab(Address a, Address b){
-   
-   // uip_ipaddr_copy((uip_ipaddr_t *)a , (uip_ipaddr_t *)b);
-}
-
-void copy_address_broad(Address a){
-   // uip_ipaddr_copy((uip_ipaddr_t *)a, &broad);
 }
 
 void send_to_address(int addr, DataPayload *dp){
@@ -105,7 +89,7 @@ void send_to_address(int addr, DataPayload *dp){
 
 /**Send a message to the connection in state **/
 void send_on_channel(ChannelState *state, DataPayload *dp){
-	send_on_channel(state->remote_addr, dp);
+	send_to_address(state->remote_addr, dp);
 }
 
 void broadcast(ChannelState *state, DataPayload *dp){
@@ -113,12 +97,15 @@ void broadcast(ChannelState *state, DataPayload *dp){
 }
 
 void resend(ChannelState *state){
-	send_on_channel(state,&(state->packet));
+	send_on_channel(state, &(state->packet));
 }
 
 void send_uni(ChannelState *state, DataPayload *dp){
 }
 
+/* Receives a packet off the air into the DataPayload provided,
+ * returns the src address if successful, 0 otherwise
+ */
 int recv_pkt(DataPayload *dp){
 	CCPACKET packet;
 	if (!packetAvailable()) return 0;
@@ -127,10 +114,9 @@ int recv_pkt(DataPayload *dp){
 	available = 0;
 	int len = radio.receiveData(&packet);
 	if(len > 0) {
-		//Serial.print("RADIO>> Data recvd: ");Serial.println(len);
 		if (packet.crc_ok && (packet.length > 0)){
 		    memcpy(dp, &(packet.data[2]), (packet.length - 2));
-		    Serial.print(F("RADIO>> Pkt for addr: "));Serial.println(packet.data[0]);
+		    Serial.print(F("RADIO>> Received a pkt for addr: "));Serial.println(packet.data[0]);
 		  	enable_RF_IRQ();
 		  	return packet.data[1];
   		} else {
