@@ -1,7 +1,7 @@
 #ifndef CALLBACK_TIMER_H
 #define CALLBACK_TIMER_H
-
 #include <TimerOne.h>
+
 /*Initialises the timer */
 void init_timer();
 
@@ -21,7 +21,7 @@ int timer_expired();
 int run_next_expired();
 
 /* Runs the callback function for all expired timers */
-int run_all_expired();
+void run_all_expired();
 
 /* removes the timer referenced by the id */
 void remove_timer(int id);
