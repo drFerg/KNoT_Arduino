@@ -254,6 +254,6 @@ void loop(){
 	if (NETWORK_EVENT)
 		network_handler();
 	else if (TIMER_EVENT)
-		timer_handler();
+		run_all_expired_timers();
 
 }

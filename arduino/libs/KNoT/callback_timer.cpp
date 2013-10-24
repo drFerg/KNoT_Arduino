@@ -80,7 +80,7 @@ int timer_expired() {
 	return expired_timers;
 }
 
-int run_next_expired() {
+int run_next_expired_timer() {
 	disable_interrupts();
 	for (;timer_iter < NUM_OF_TIMERS; timer_iter++) {
 		if (has_timer_expired(timers[timer_iter])) {
@@ -96,7 +96,7 @@ int run_next_expired() {
 	return 0;
 }
 
-void run_all_expired() {
+void run_all_expired_timers() {
 	while (expired_timers) {
 		run_next_expired();
 	}

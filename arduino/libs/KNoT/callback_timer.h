@@ -18,10 +18,10 @@ int set_timer(double timer, int val, void(*callback)(int));
 int timer_expired();
 
 /* Runs the callback function for the next expired timer */
-int run_next_expired();
+int run_next_expired_timer();
 
 /* Runs the callback function for all expired timers */
-void run_all_expired();
+void run_all_expired_timers();
 
 /* removes the timer referenced by the id */
 void remove_timer(int id);

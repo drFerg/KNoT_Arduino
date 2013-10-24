@@ -45,7 +45,7 @@
 
 
 #define CMD_LOW CONNECT
-#define CMD_HIGH SACK		/* change this if commands added */
+#define CMD_HIGH RSYN		/* change this if commands added */
 
 /* =======================*/
 
