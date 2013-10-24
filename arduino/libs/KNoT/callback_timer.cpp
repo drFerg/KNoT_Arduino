@@ -84,11 +84,12 @@ int run_next_expired_timer() {
 	disable_interrupts();
 	for (;timer_iter < NUM_OF_TIMERS; timer_iter++) {
 		if (has_timer_expired(timers[timer_iter])) {
+			int to_run = timer_iter; /* Save timer incase of later interrupt */
 			timers[timer_iter] = UNSET_TIMER;
 			expired_timers--;
-			enable_interrupts();
-			/* Run callback function */
-			callbacks[timer_iter](events[timer_iter]); 
+			enable_interrupts(); /* Enable interrupts from now
+			                      * incase of long callback func */
+			callbacks[to_run](events[timer_iter]); /* Run callback function */
 			return 1;
 		}
 	}
