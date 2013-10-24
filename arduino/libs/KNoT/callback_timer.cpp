@@ -2,33 +2,31 @@
 #include <Arduino.h>
 #include <TimerOne.h>
 
+/* Useful values macros */
 #define UNSET_TIMER -1
 #define NUM_OF_TIMERS 10
-#define MAX_TIME_S 8 //Timer limit is 8.3....s
-#define ONE_SECOND 1000000 //One second in microseconds
+#define MAX_TIME_S 8 /* Timer limit is 8.3....s */
+#define ONE_SECOND 1000000 /* One second in microseconds */
 #define MAX_TIME_MICRO_S (MAX_TIME_S * ONE_SECOND)
 
+/* Helper function macros */
 #define enable_interrupts sei()
 #define disable_interrupts cli()
-
 #define has_timer_expired(time) (time == 0)
 #define has_time_left(time) (time > 0)
 #define is_timer_free(time) (time == -1)
 
-int32_t timers[NUM_OF_TIMERS];
-int events[NUM_OF_TIMERS];
-void (*callbacks[NUM_OF_TIMERS])(int); /* array of callback func* */
+static int32_t timers[NUM_OF_TIMERS]; /* Array of timers */
+static int events[NUM_OF_TIMERS]; /* Array of values to pass to functions */
+static void (*callbacks[NUM_OF_TIMERS])(int); /* Array of callback func* */
 
-int32_t elapsed = MAX_TIME_MICRO_S;
-int32_t next = MAX_TIME_MICRO_S;
+static int32_t elapsed = MAX_TIME_MICRO_S; /* Time elapsed since last timer set */
+static int32_t next = MAX_TIME_MICRO_S; /* Next time till expiry */
 
-uint8_t current_iter = 0; /* iterator for current expired */
-uint8_t expired = 0;
+static uint8_t current_iter = 0; /* Iterator for current expired */
+static uint8_t expired_timers = 0; /* Count of timers that have expired */
 
-int timer_expired() {
-	return expired;
-}
-
+/* Interrupt service routine for timer expiry */
 void timer_ISR() {
 	current_iter = 0;
 	next_timer = MAX_TIME_MICRO_S;
@@ -36,7 +34,7 @@ void timer_ISR() {
 		if (has_time_left(timers[i])){ /* Check if a valid timer */
 			timers[i] = timers[i] - elapsed; /* Decrement time elapsed */
 			if (has_timer_expired(timers[i])) { /* Check if now expired */
-				expired++;
+				expired_timers++;
 			}
 			else if (timers[i] < next_timer) { /* find next closest time */
 				next_timer = timers[i];
@@ -47,22 +45,20 @@ void timer_ISR() {
 	Timer1.setPeriod(next_timer);
 }
 
-
 void init_timer() {
-	pinMode(4, OUTPUT);
+	pinMode(4, OUTPUT); /* Pin 4 is used for timer interrupt */
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		timers[i] = -1;
+		timers[i] = UNSET_TIMER;
 	}
 	Timer1.initialize(MAX_TIME_MICRO_S);
 	Timer1.attachInterrupt(timer_ISR);
 }
 
-
-int set_timer(double timer, int val, void (*callback)(int)) {
+int set_timer(double timer, int func_value, void (*callback)(int)) {
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
 		if (is_timer_free(timers[i])){
 			timers[i] = timer * ONE_SECOND; /* Timer is in microseconds */
-			events[i] = val;
+			events[i] = func_value; /* Store value to pass to callback func */
 			callbacks[i] = callback;
 			if (timers[i] < next_timer) { 
 				next_timer = timers[i]; /* Check if less than current_iter next timer */
@@ -81,27 +77,28 @@ void remove_timer(int timer_id) {
 	}
 }
 
+int timer_expired() {
+	return expired_timers;
+}
 
 int run_next_expired() {
 	disable_interrupts();
 	for (;current_iter < NUM_OF_TIMERS; current_iter++) {
 		if (has_timer_expired(timers[current_iter])) {
 			timers[current_iter] = UNSET_TIMER; // Reset to invalidate timer
-			expired--;
+			expired_timers--;
 			enable_interrupts();
 			/* Run callback function */
 			callbacks[current_iter](events[current_iter]); 
-			return events[current_iter];
+			return 1;
 		}
 	}
-	expired = 0;
-	disable_interrupts();
+	enable_interrupts();
 	return 0;
 }
 
-void timer_handler() {
-	int channels_still_left = 1;
-	while (channels_still_left) {
-		channels_still_left = run_next_expired();
+void run_all_expired() {
+	while (expired_timers) {
+		run_next_expired();
 	}
 }

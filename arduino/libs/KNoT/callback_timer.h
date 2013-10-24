@@ -14,14 +14,15 @@ void init_timer();
  * Returns 0 if queue is full, 1 otherwise. */
 int set_timer(double timer, int val, void(*callback)(int));
 
-/* Runs the next expired timer's callback function */
-int run_next_expired();
-
 /* Returns the number of timers that have expired, 0 otherwise */
 int timer_expired();
 
-/*executes the callback functions for the expired timers */
-void timer_handler();
+/* Runs the callback function for the next expired timer */
+int run_next_expired();
+
+/* Runs the callback function for all expired timers */
+int run_all_expired();
+
 /* removes the timer referenced by the id */
 void remove_timer(int id);
 
