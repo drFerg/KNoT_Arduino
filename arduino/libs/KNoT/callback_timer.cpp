@@ -21,28 +21,27 @@ static int events[NUM_OF_TIMERS]; /* Array of values to pass to functions */
 static void (*callbacks[NUM_OF_TIMERS])(int); /* Array of callback func* */
 
 static int32_t elapsed = MAX_TIME_MICRO_S; /* Time elapsed since last timer set */
-static int32_t next = MAX_TIME_MICRO_S; /* Next time till expiry */
-
-static uint8_t current_iter = 0; /* Iterator for current expired */
+static int32_t next_timer_len = MAX_TIME_MICRO_S; /* Next time till expiry */
+static uint8_t timer_iter = 0; /* Iterator for running expired timers */
 static uint8_t expired_timers = 0; /* Count of timers that have expired */
 
 /* Interrupt service routine for timer expiry */
 void timer_ISR() {
-	current_iter = 0;
-	next_timer = MAX_TIME_MICRO_S;
+	timer_iter = 0;
+	next_timer_len = MAX_TIME_MICRO_S;
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
 		if (has_time_left(timers[i])){ /* Check if a valid timer */
 			timers[i] = timers[i] - elapsed; /* Decrement time elapsed */
 			if (has_timer_expired(timers[i])) { /* Check if now expired */
 				expired_timers++;
 			}
-			else if (timers[i] < next_timer) { /* find next closest time */
-				next_timer = timers[i];
+			else if (timers[i] < next_timer_len) { /* find next closest time */
+				next_timer_len = timers[i];
 			}
 		}
 	}
-	elapsed = next_timer; /* Set timer to next shortest timer expiry */
-	Timer1.setPeriod(next_timer);
+	elapsed = next_timer_len; /* Set timer to next shortest timer expiry */
+	Timer1.setPeriod(next_timer_len);
 }
 
 void init_timer() {
@@ -60,9 +59,9 @@ int set_timer(double timer, int func_value, void (*callback)(int)) {
 			timers[i] = timer * ONE_SECOND; /* Timer is in microseconds */
 			events[i] = func_value; /* Store value to pass to callback func */
 			callbacks[i] = callback;
-			if (timers[i] < next_timer) { 
-				next_timer = timers[i]; /* Check if less than current_iter next timer */
-				elapsed = next_timer;
+			if (timers[i] < next_timer_len) { 
+				next_timer_len = timers[i]; /* Check if less than next timer */
+				elapsed = next_timer_len;
 				Timer1.setPeriod(timers[i]);
 			}
 			return i;
@@ -83,13 +82,13 @@ int timer_expired() {
 
 int run_next_expired() {
 	disable_interrupts();
-	for (;current_iter < NUM_OF_TIMERS; current_iter++) {
-		if (has_timer_expired(timers[current_iter])) {
-			timers[current_iter] = UNSET_TIMER; // Reset to invalidate timer
+	for (;timer_iter < NUM_OF_TIMERS; timer_iter++) {
+		if (has_timer_expired(timers[timer_iter])) {
+			timers[timer_iter] = UNSET_TIMER;
 			expired_timers--;
 			enable_interrupts();
 			/* Run callback function */
-			callbacks[current_iter](events[current_iter]); 
+			callbacks[timer_iter](events[timer_iter]); 
 			return 1;
 		}
 	}
