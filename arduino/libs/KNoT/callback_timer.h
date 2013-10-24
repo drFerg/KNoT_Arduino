@@ -7,7 +7,7 @@ void init_timer();
 
 /*
  * Adds a timer to the timer queue.
- *
+ * 
  * Parameters: timer specifies the timer duration,
  *             val is passed to the callback function upon timer expiry 
  *             and call to run_next_expired()

@@ -2,115 +2,106 @@
 #include <Arduino.h>
 #include <TimerOne.h>
 
-
+#define UNSET_TIMER -1
 #define NUM_OF_TIMERS 10
 #define MAX_TIME_S 8 //Timer limit is 8.3....s
 #define ONE_SECOND 1000000 //One second in microseconds
-#define MAX_TIME_MS (MAX_TIME_S * ONE_SECOND)
+#define MAX_TIME_MICRO_S (MAX_TIME_S * ONE_SECOND)
+
+#define enable_interrupts sei()
+#define disable_interrupts cli()
+
+#define has_timer_expired(time) (time == 0)
+#define has_time_left(time) (time > 0)
+#define is_timer_free(time) (time == -1)
 
 int32_t timers[NUM_OF_TIMERS];
 int events[NUM_OF_TIMERS];
-void (*callbacks[NUM_OF_TIMERS])(int);
+void (*callbacks[NUM_OF_TIMERS])(int); /* array of callback func* */
 
+int32_t elapsed = MAX_TIME_MICRO_S;
+int32_t next = MAX_TIME_MICRO_S;
 
-int32_t elapsed = MAX_TIME_MS;
-int32_t next = MAX_TIME_MS;
-
-uint8_t current = 0;
+uint8_t current_iter = 0; /* iterator for current expired */
 uint8_t expired = 0;
 
-uint8_t flag = 0;
-int timer_expired(){
-	#ifdef DEBUG 1
-	if (flag) {
-		Serial.println("Timer expired");
-		Serial.print("Timer0: "); Serial.println(timers[0]);
-		Serial.print("Next timer : "); Serial.println(next);
-		flag = 0;
-	}
-	#endif
+int timer_expired() {
 	return expired;
 }
 
-void timer_ISR(){
-	current = 0;
-	next = MAX_TIME_MS;
-	for (int i = 0; i < NUM_OF_TIMERS; i++){
-		if (timers[i] > 0){ // Check if a valid timer or already timed-out
-			timers[i] = timers[i] - elapsed;
-			if (timers[i] == 0){
+void timer_ISR() {
+	current_iter = 0;
+	next_timer = MAX_TIME_MICRO_S;
+	for (int i = 0; i < NUM_OF_TIMERS; i++) {
+		if (has_time_left(timers[i])){ /* Check if a valid timer */
+			timers[i] = timers[i] - elapsed; /* Decrement time elapsed */
+			if (has_timer_expired(timers[i])) { /* Check if now expired */
 				expired++;
 			}
-			if (timers[i] > 0 && timers[i] < next){
-				next = timers[i];
+			else if (timers[i] < next_timer) { /* find next closest time */
+				next_timer = timers[i];
 			}
 		}
 	}
-	#ifdef DEBUG 1
-	if (expired==0){
-		flag = 1;
-	}
-	#endif
-	//set timer to next shortest timer expiry
-	elapsed = next;
-	Timer1.setPeriod(next);
+	elapsed = next_timer; /* Set timer to next shortest timer expiry */
+	Timer1.setPeriod(next_timer);
 }
 
 
-void init_timer(){
+void init_timer() {
 	pinMode(4, OUTPUT);
-	for (int i = 0; i < NUM_OF_TIMERS; i++){
+	for (int i = 0; i < NUM_OF_TIMERS; i++) {
 		timers[i] = -1;
 	}
-	Timer1.initialize(MAX_TIME_MS);
+	Timer1.initialize(MAX_TIME_MICRO_S);
 	Timer1.attachInterrupt(timer_ISR);
 }
 
 
-int set_timer(double timer, int val, void (*callback)(int)){
-	for (int i = 0; i < NUM_OF_TIMERS; i++){
-		if (timers[i] == -1){
-			timers[i] = timer * ONE_SECOND;
+int set_timer(double timer, int val, void (*callback)(int)) {
+	for (int i = 0; i < NUM_OF_TIMERS; i++) {
+		if (is_timer_free(timers[i])){
+			timers[i] = timer * ONE_SECOND; /* Timer is in microseconds */
 			events[i] = val;
 			callbacks[i] = callback;
-			if (timers[i] < next){ 
-				//Check if less than current next timer
-				next = timers[i];
-				elapsed = next;
+			if (timers[i] < next_timer) { 
+				next_timer = timers[i]; /* Check if less than current_iter next timer */
+				elapsed = next_timer;
 				Timer1.setPeriod(timers[i]);
 			}
 			return i;
 		}
-	}//No space in queue
-	return -1;
+	}
+	return -1; /* No space in queue */
 }
 
-void remove_timer(int id){
-	if (id < NUM_OF_TIMERS){
-		timers[id] = -1;
+void remove_timer(int timer_id) {
+	if (timer_id < NUM_OF_TIMERS) {
+		timers[timer_id] = UNSET_TIMER;
 	}
 }
 
 
-int run_next_expired(){
-	cli();
-	for (;current < NUM_OF_TIMERS; current++){
-		if (timers[current] == 0){
-			timers[current] = -1; // Reset to invalidate timer
+int run_next_expired() {
+	disable_interrupts();
+	for (;current_iter < NUM_OF_TIMERS; current_iter++) {
+		if (has_timer_expired(timers[current_iter])) {
+			timers[current_iter] = UNSET_TIMER; // Reset to invalidate timer
 			expired--;
-			sei();
-			callbacks[current](events[current]);
-			return events[current];
+			enable_interrupts();
+			/* Run callback function */
+			callbacks[current_iter](events[current_iter]); 
+			return events[current_iter];
 		}
 	}
 	expired = 0;
-	sei();
+	disable_interrupts();
 	return 0;
 }
 
-void timer_handler(){
+void timer_handler() {
 	int channels_still_left = 1;
-	while (channels_still_left){
+	while (channels_still_left) {
 		channels_still_left = run_next_expired();
 	}
 }
