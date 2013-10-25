@@ -13,19 +13,6 @@
 #define SWITCH 3
 #define LIGHT  4
 
-/* Connection states */
-#define STATE_IDLE       0
-#define STATE_QUERY      1
-#define STATE_QACKED     2
-#define STATE_CONNECT    3
-#define STATE_CONNECTED  4
-#define STATE_DCONNECTED 5
-#define STATE_PING       7
-#define STATE_COMMANDED  9
-/* ===================*/
-
-
-
 /* Packet command types */
 #define QUERY    1
 #define QACK     2
@@ -48,6 +35,15 @@
 #define CMD_HIGH RSYN		/* change this if commands added */
 
 /* =======================*/
+
+/*
+* the following definitions control the exponential backoff retry
+* mechanism used in the protocol - these may also be changed using
+* -D<symbol>=value in CFLAGS in the Makefile
+*/
+#define ATTEMPTS 7 /* number of attempts before setting state to TIMEDOUT */
+#define TICKS 2 /* initial number of 20ms ticks before first retry
+                        number of ticks is doubled for each successive retry */
 
 #define MAX_DATA_SIZE 32
 #define RESPONSE_DATA_SIZE 16

@@ -1,7 +1,8 @@
+#include <Arduino.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "channeltable.h"
-#include <Arduino.h>
+
 
 typedef struct knot_channel{
 	ChannelState state;
@@ -17,8 +18,6 @@ int size;
  * initialise the channel table 
  */
 void init_table(){
-	Serial.print("Initialising table...");
-
 	int i;
 	size = 0;
 	nextFree = channelTable;
@@ -28,7 +27,6 @@ void init_table(){
 		init_state((&channelTable[i].state), i+ 1);
 	}
 	channelTable[CHANNEL_NUM-1].nextChannel = NULL;
-	Serial.print("done\n");
 }
 
 /*
@@ -42,7 +40,6 @@ ChannelState * new_channel(){
 	nextFree = temp->nextChannel;
 	temp->nextChannel = NULL;
 	size++;
-	Serial.print("New channel created\n");
 	return &(temp->state);
 }
 

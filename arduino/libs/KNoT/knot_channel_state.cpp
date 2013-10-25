@@ -8,6 +8,7 @@ void init_state(ChannelState *state, uint8_t chan_num){
       state->chan_num = chan_num;
       state->seqno = 0;
       state->remote_addr = 0;
-      state->pingOUT = 0;
+      state->pingsTillPurge = PINGS_TILL_PURGE;
+      state->ticksTillPing = 0;
 }
 

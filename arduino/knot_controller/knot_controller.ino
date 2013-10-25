@@ -21,6 +21,10 @@
 #define TIMER_INTERVAL 3
 #define HOME_CHANNEL 0
 
+#define in_waiting_state(state) (state->state % 2 != 0)
+#define set_ticks(state, ticks) do { state->ticks = ticks; \
+						      		 state->ticksLeft = ticks; \
+						      		} while (0)
 #define NETWORK_EVENT packetAvailable()
 #define SERIAL_EVENT Serial.available()
 #define TIMER_EVENT 0
@@ -39,7 +43,7 @@ void qack_handler(ChannelState *state, DataPayload *dp){
 		return;
 	}
 	Serial.print(F("Query ACK received\n"));
-	state->ticks = 100;
+	set_ticks(state, TICKS);
 	QueryResponseMsg *qr = (QueryResponseMsg *)&dp->data;
 	write_to_serial((char *)dp, sizeof(DataPayload));
 	addr = state->remote_addr;
@@ -68,7 +72,7 @@ void cack_handler(ChannelState *state, DataPayload *dp){
              CACK, NO_PAYLOAD);
 	send_on_knot_channel(state,new_dp);
 	state->state = STATE_CONNECTED;
-	state->ticks = 100;
+	set_ticks(state, TICKS);
 	//Set up ping timeouts for liveness if no message received or
 	// connected to actuator
 }
@@ -78,7 +82,7 @@ void response_handler(ChannelState *state, DataPayload *dp){
 		Serial.print(F("Not connected to device!\n"));
 		return;
 	}
-	state->ticks = 100;
+	set_ticks(state, TICKS);
 	ResponseMsg *rmsg = (ResponseMsg *)dp->data;
 	Serial.print(rmsg->name); Serial.print(": "); Serial.println(rmsg->data);
 	/*RESET PING TIMER*/
@@ -103,14 +107,13 @@ void service_search(ChannelState* state, uint8_t type){
   strcpy(q->name, controller_name);
   knot_broadcast(state,new_dp);
   state->state = STATE_QUERY;
-  state->ticks = 100;
+  set_ticks(state, TICKS);
   // Set timer to exit Query state after 5 secs~
 }
 
 void init_connection_to(ChannelState* state, uint8_t addr, int rate){
 	ChannelState * s = new_channel();
 	if (state == NULL) return;
-
 	s->remote_addr = addr;
 	s->rate = rate;
 	DataPayload *new_dp = &(s->packet);
@@ -123,8 +126,44 @@ void init_connection_to(ChannelState* state, uint8_t addr, int rate){
     Serial.print(F("Sending connect request\n"));
     send_on_knot_channel(s, new_dp);
     s->state = STATE_CONNECT;
-	s->ticks = 10;
+	set_ticks(state, TICKS);
 }
+
+
+void check_timer(ChannelState *s) {
+    if (s == NULL) return;
+    if (in_waiting_state(s)) {
+        if (--s->ticksLeft <= 0) {
+        	Serial.print(F("Retrying\n"));
+            resend(s);
+            set_ticks(s, s->ticks * 2);
+        }
+    } else { /* Connection idling */
+   		if (--s->ticksTillPing <= 0) {
+        	/* PING A LING LONG */
+        } else {
+        	Serial.print(F("CLOSING CHANNEL DUE TO TIMEOUT\n"));
+            close_graceful(s);
+            remove_channel(s->chan_num);
+        }
+
+        }
+    }
+}
+
+/* Run once every 20ms */
+void cleaner(){
+	int i;
+    ChannelState *s;
+    for (i = 1; i < CHANNEL_NUM; i++){
+            s = get_channel_state(i);
+            check_timer(s);
+    }
+    if (home_channel_state.state != STATE_IDLE){
+            check_timer(&home_channel_state);
+    }
+}
+
 
 void network_handler(){
 	DataPayload dp;

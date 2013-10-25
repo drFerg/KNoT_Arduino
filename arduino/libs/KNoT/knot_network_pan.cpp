@@ -90,6 +90,7 @@ void send_to_address(int addr, DataPayload *dp){
 /**Send a message to the connection in state **/
 void send_on_channel(ChannelState *state, DataPayload *dp){
 	send_to_address(state->remote_addr, dp);
+	state->ticks = TICKS
 }
 
 void broadcast(ChannelState *state, DataPayload *dp){
