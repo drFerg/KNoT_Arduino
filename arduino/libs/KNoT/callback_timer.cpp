@@ -16,9 +16,16 @@
 #define has_time_left(time) (time > 0)
 #define is_timer_free(time) (time == -1)
 
-static int32_t timers[NUM_OF_TIMERS]; /* Array of timers */
-static int events[NUM_OF_TIMERS]; /* Array of values to pass to functions */
-static void (*callbacks[NUM_OF_TIMERS])(int); /* Array of callback func* */
+typedef struct timer {
+	int timer;
+	int value;
+	void *callback(int);
+}Timer;
+
+static Timer timers[NUM_OF_TIMERS];
+// static int32_t timers[NUM_OF_TIMERS]; /* Array of timers */
+// static int events[NUM_OF_TIMERS]; /* Array of values to pass to functions */
+// static void (*callbacks[NUM_OF_TIMERS])(int); /* Array of callback func* */
 
 static int32_t elapsed = MAX_TIME_MICRO_S; /* Time elapsed since last timer set */
 static int32_t next_timer_len = MAX_TIME_MICRO_S; /* Next time till expiry */
@@ -30,13 +37,13 @@ void timer_ISR() {
 	timer_iter = 0;
 	next_timer_len = MAX_TIME_MICRO_S;
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		if (has_time_left(timers[i])){ /* Check if a valid timer */
-			timers[i] = timers[i] - elapsed; /* Decrement time elapsed */
-			if (has_timer_expired(timers[i])) { /* Check if now expired */
+		if (has_time_left(timers[i]->timer)){ /* Check if a valid timer */
+			timers[i]->timer = timers[i]->timer - elapsed; /* Decrement time elapsed */
+			if (has_timer_expired(timers[i]->timer)) { /* Check if now expired */
 				expired_timers++;
 			}
-			else if (timers[i] < next_timer_len) { /* find next closest time */
-				next_timer_len = timers[i];
+			else if (timers[i]->timer < next_timer_len) { /* find next closest time */
+				next_timer_len = timers[i]->timer;
 			}
 		}
 	}
@@ -47,7 +54,7 @@ void timer_ISR() {
 void init_timer() {
 	pinMode(4, OUTPUT); /* Pin 4 is used for timer interrupt */
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		timers[i] = UNSET_TIMER;
+		timers[i]->timer = UNSET_TIMER;
 	}
 	Timer1.initialize(MAX_TIME_MICRO_S);
 	Timer1.attachInterrupt(timer_ISR);
@@ -55,14 +62,14 @@ void init_timer() {
 
 int set_timer(double timer, int func_value, void (*callback)(int)) {
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		if (is_timer_free(timers[i])){
-			timers[i] = timer * ONE_SECOND; /* Timer is in microseconds */
-			events[i] = func_value; /* Store value to pass to callback func */
-			callbacks[i] = callback;
-			if (timers[i] < next_timer_len) { 
-				next_timer_len = timers[i]; /* Check if less than next timer */
+		if (is_timer_free(timers[i]->timer)){
+			timers[i]->timer = timer * ONE_SECOND; /* Timer is in microseconds */
+			timers[i]->value = func_value; /* Store value to pass to callback func */
+			timers[i]->callback = callback;
+			if (timers[i]->timer < next_timer_len) { 
+				next_timer_len = timers[i]->timer; /* Check if less than next timer */
 				elapsed = next_timer_len;
-				Timer1.setPeriod(timers[i]);
+				Timer1.setPeriod(next_timer_len);
 			}
 			return i;
 		}
@@ -72,7 +79,7 @@ int set_timer(double timer, int func_value, void (*callback)(int)) {
 
 void remove_timer(int timer_id) {
 	if (timer_id < NUM_OF_TIMERS) {
-		timers[timer_id] = UNSET_TIMER;
+		timers[timer_id]->timer = UNSET_TIMER;
 	}
 }
 
@@ -83,13 +90,13 @@ int timer_expired() {
 int run_next_expired_timer() {
 	disable_interrupts();
 	for (;timer_iter < NUM_OF_TIMERS; timer_iter++) {
-		if (has_timer_expired(timers[timer_iter])) {
+		if (has_timer_expired(timers[timer_iter]->timer)) {
 			int to_run = timer_iter; /* Save timer incase of later interrupt */
-			timers[timer_iter] = UNSET_TIMER;
+			timers[timer_iter]->timer = UNSET_TIMER;
 			expired_timers--;
-			enable_interrupts(); /* Enable interrupts from now
-			                      * incase of long callback func */
-			callbacks[to_run](events[timer_iter]); /* Run callback function */
+			enable_interrupts(); 
+			/* Enable interrupts from now incase of long callback func */
+			timers[to_run]->callback(timers[to_run]->value);
 			return 1;
 		}
 	}
