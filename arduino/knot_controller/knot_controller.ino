@@ -202,15 +202,15 @@ void serial_init_connection_to(DataPayload *dp){
 }
 
 void serial_handler(){
-	DataPayload dp = *(DataPayload *)serialpkt;
+	DataPayload *dp = (DataPayload *)serialpkt;
 	Serial.print(F("SERIAL> Serial command received.\n"));
-	unsigned short cmd = dp.hdr.cmd;
-	Serial.print("SERIAL> Packet length:");Serial.println(dp.dhdr.tlen);
-	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp.hdr.dst_chan_num);
+	unsigned short cmd = dp->hdr.cmd;
+	Serial.print("SERIAL> Packet length:");Serial.println(dp->dhdr.tlen);
+	Serial.print(F("SERIAL> Message for channel "));Serial.println(dp->hdr.dst_chan_num);
 
 	switch (cmd){
-		case(SERIAL_SEARCH):  serial_service_search(&dp);break;
-		case(SERIAL_CONNECT): serial_init_connection_to(&dp);break;
+		case(SERIAL_SEARCH):  serial_service_search(dp);break;
+		case(SERIAL_CONNECT): serial_init_connection_to(dp);break;
 	}
 }
 

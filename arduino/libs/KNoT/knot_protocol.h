@@ -53,7 +53,7 @@
 #define RESPONSE_DATA_SIZE 16
 #define NAME_SIZE     16
 
-extern char *cmdnames[16];
+extern const char *cmdnames[16];
 
 typedef struct ph {
    uint8_t seqno;   /* sequence number */
