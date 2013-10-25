@@ -1,3 +1,13 @@
+/*
+ * callback_timer.h - Timer multiplexer using TimerOne library
+ * 
+ * Allows multiple timers to be queued to the one hardware timer.
+ * Callback functions can then be executed upon timer expiry. 
+ * 
+ * 
+ * Author: Fergus William Leahy
+ * 
+ */
 #ifndef CALLBACK_TIMER_H
 #define CALLBACK_TIMER_H
 #include <TimerOne.h>

@@ -1,3 +1,13 @@
+/*
+ * callback_timer.c - Timer multiplexer using TimerOne library
+ * 
+ * Allows multiple timers to be queued to the one hardware timer.
+ * Callback functions can then be executed upon timer expiry. 
+ * 
+ * 
+ * Author: Fergus William Leahy
+ * 
+ */
 #include "callback_timer.h"
 #include <Arduino.h>
 #include <TimerOne.h>
@@ -12,20 +22,17 @@
 /* Helper function macros */
 #define enable_interrupts() sei()
 #define disable_interrupts() cli()
-#define has_timer_expired(time) (time == 0)
-#define has_time_left(time) (time > 0)
-#define is_timer_free(time) (time == -1)
+#define has_timer_expired(time) (time.timer == 0)
+#define has_time_left(time) (time.timer > 0)
+#define is_timer_free(time) (time.timer == -1)
 
 typedef struct timer {
 	int timer;
-	int value;
+	int value; /* values to pass to callback */
 	void (*callback)(int);
 }Timer;
 
-static Timer timers[NUM_OF_TIMERS];
-// static int32_t timers[NUM_OF_TIMERS]; /* Array of timers */
-// static int events[NUM_OF_TIMERS]; /* Array of values to pass to functions */
-// static void (*callbacks[NUM_OF_TIMERS])(int); /* Array of callback func* */
+static Timer timers[NUM_OF_TIMERS]; /* Array of timers */
 
 static int32_t elapsed = MAX_TIME_MICRO_S; /* Time elapsed since last timer set */
 static int32_t next_timer_len = MAX_TIME_MICRO_S; /* Next time till expiry */
@@ -37,9 +44,9 @@ void timer_ISR() {
 	timer_iter = 0;
 	next_timer_len = MAX_TIME_MICRO_S;
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		if (has_time_left(timers[i].timer)){ /* Check if a valid timer */
+		if (has_time_left(timers[i])){ /* Check if a valid timer */
 			timers[i].timer = timers[i].timer - elapsed; /* Decrement time elapsed */
-			if (has_timer_expired(timers[i].timer)) { /* Check if now expired */
+			if (has_timer_expired(timers[i])) { /* Check if now expired */
 				expired_timers++;
 			}
 			else if (timers[i].timer < next_timer_len) { /* find next closest time */
@@ -62,7 +69,7 @@ void init_timer() {
 
 int set_timer(double timer, int func_value, void (*callback)(int)) {
 	for (int i = 0; i < NUM_OF_TIMERS; i++) {
-		if (is_timer_free(timers[i].timer)){
+		if (is_timer_free(timers[i])){
 			timers[i].timer = timer * ONE_SECOND; /* Timer is in microseconds */
 			timers[i].value = func_value; /* Store value to pass to callback func */
 			timers[i].callback = callback;
@@ -90,7 +97,7 @@ int timer_expired() {
 int run_next_expired_timer() {
 	disable_interrupts();
 	for (;timer_iter < NUM_OF_TIMERS; timer_iter++) {
-		if (has_timer_expired(timers[timer_iter].timer)) {
+		if (has_timer_expired(timers[timer_iter])) {
 			int to_run = timer_iter; /* Save timer incase of later interrupt */
 			timers[timer_iter].timer = UNSET_TIMER;
 			expired_timers--;
