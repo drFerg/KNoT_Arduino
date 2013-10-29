@@ -15,24 +15,24 @@
 #define STATE_DCONNECTED 5
 #define STATE_PING       7
 #define STATE_COMMANDED  9
-/* ===================*/
 
-#define TICKS_TILL_PING (60 * 50) /* 60s * (50ms * 20ms) = 1 minute */
-#define PINGS_TILL_PURGE 3
+/* Sets the channel state to the specified state */
+#define set_state(chanstate, status) chanstate->state = status
 
+/* Returns 1 if a channel is waiting for a reply message, 0 otherwise */
+#define in_waiting_state(chanstate) (chanstate->state % 2 != 0)
 
 typedef struct channel_state{
-   //CallbackControlBlock ccb;
    uint8_t remote_addr; //Holds address of remote device
    uint8_t state;
    uint8_t seqno;
    uint8_t chan_num;
    uint8_t remote_chan_num;
    uint8_t ticks;
-   uint8_t ticksLeft;
+   uint8_t ticks_left;
    uint16_t rate;
-   uint8_t pingsTillPurge;
-   uint8_t ticksTillPing;
+   uint8_t ticks_till_ping;
+   uint8_t attempts_left;
    uint8_t timer;
    DataPayload packet;
 }ChannelState;

@@ -70,7 +70,6 @@ void ping(ChannelState *state){
                PING, NO_PAYLOAD);
    send_on_knot_channel(state, new_dp);
    state->state = STATE_PING;
-   state->ticks = 100;
 }
 
 void pack_handler(ChannelState *state, DataPayload *dp){
@@ -79,8 +78,6 @@ void pack_handler(ChannelState *state, DataPayload *dp){
       return;
    }
    state->state = STATE_CONNECTED;
-   state->ticks = 100;
-   state->pingOUT = 0;
 
 }
 
@@ -96,7 +93,6 @@ void ping_handler(ChannelState *state, DataPayload *dp){
    dp_complete(new_dp, state->chan_num, state->remote_chan_num, 
                PACK, NO_PAYLOAD);
    send_on_knot_channel(state,new_dp);
-   state->ticks = 100;
 }
 
 
@@ -107,7 +103,6 @@ void close_graceful(ChannelState *state){
                DISCONNECT, NO_PAYLOAD);
    send_on_knot_channel(state,new_dp);
    state->state = STATE_DCONNECTED;
-   state->ticks = 100;
 }
 
 void close_handler(ChannelState *state, DataPayload *dp){

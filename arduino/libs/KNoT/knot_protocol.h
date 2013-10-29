@@ -36,14 +36,6 @@
 
 /* =======================*/
 
-/*
-* the following definitions control the exponential backoff retry
-* mechanism used in the protocol - these may also be changed using
-* -D<symbol>=value in CFLAGS in the Makefile
-*/
-#define ATTEMPTS 7 /* number of attempts before setting state to TIMEDOUT */
-#define TICKS 2 /* initial number of 20ms ticks before first retry
-                        number of ticks is doubled for each successive retry */
 
 #define MAX_DATA_SIZE 32
 #define RESPONSE_DATA_SIZE 16
