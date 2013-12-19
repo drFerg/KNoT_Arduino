@@ -4,7 +4,7 @@
 #include <EEPROM.h>
 #include <cc1101.h>
 #include <TimerOne.h>
-
+#include "ocb.h"
 #include "knot_protocol.h"
 #include "payloads.h"
 #include "callback_timer.h"
@@ -13,6 +13,7 @@
 #include "channeltable.h"
 #include "LED.h"
 #include "serialPacket.h"
+#define DEBUG 1
 
 #if DEBUG
 #define PRINT(...) Serial.print(__VA_ARGS__)
@@ -44,10 +45,12 @@ void qack_handler(ChannelState *state, DataPayload *dp) {
 		PRINT("Not in Query state\n");
 		return;
 	}
-	PRINT("Query ACK received\n");
-	QueryResponseMsg *qr = (QueryResponseMsg *)&dp->data;
+	PRINT("Query ACK received from Thing: \n");
+	Serial.println(state->remote_addr);
+	SerialQueryResponseMsg *qr = (SerialQueryResponseMsg *) &dp->data;
+	qr->src = state->remote_addr;
+	Serial.println(qr->src);
 	write_to_serial((char *)dp, sizeof(DataPayload));
-	addr = state->remote_addr;
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
@@ -76,6 +79,9 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 	set_state(state, STATE_CONNECTED);
 	//Set up ping timeouts for liveness if no message received or
 	// connected to actuator
+	SerialConnectACKMsg *sck = (SerialConnectACKMsg *) ck;
+	sck->src = state->remote_addr;
+	write_to_serial((char *)dp, sizeof(DataPayload));
 }
 
 void response_handler(ChannelState *state, DataPayload *dp){
@@ -86,11 +92,13 @@ void response_handler(ChannelState *state, DataPayload *dp){
 	set_ticks(state, TICKS); /* RESET PING TIMER */
 	ResponseMsg *rmsg = (ResponseMsg *)dp->data;
 	Serial.print(rmsg->name); Serial.print(": "); Serial.println(rmsg->data);
+	SerialResponseMsg *srmsg = (SerialResponseMsg *)dp->data;
+	srmsg->src = state->remote_addr;
+	write_to_serial((char *)dp, sizeof(DataPayload));
 	
 }
 
 void send_rack(ChannelState *state){
-	// TODO: Reset internal timer/ticks of when to expect RSYN
 	DataPayload *new_dp = &(state->packet);
 	clean_packet(new_dp);
 	dp_complete(new_dp, state->chan_num, state->remote_chan_num, 

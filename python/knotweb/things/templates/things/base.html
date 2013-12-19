@@ -1,0 +1,86 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="description" content="Buy and sell educational books.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>KNoT: Intranet of Things</title>
+
+  <!-- Favicon goes here -->
+
+  <!-- Makes browsers render all elements more consistently. -->
+  <link rel="stylesheet" href="{% static 'css/vendor/normalize.css' %}">
+
+  <!-- Bootstrap core CSS. -->
+  <link rel="stylesheet" href="{% static 'css/vendor/bootstrap.css' %}">
+
+  <!-- The application styling. -->
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+  <!-- Block for page specific styling. -->
+  {% block css %}{% endblock %}
+</head>
+<body>
+    <!--[if lt IE 7]>
+        <p class="browsehappy">
+          You are using an <strong>outdated</strong> browser.
+          Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.
+        </p>
+        <![endif]-->
+
+        <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+          <div class="container">
+            <div class="navbar-header">
+              <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+              </button>
+              <a class="navbar-brand" href="#">KNoT</a>
+            </div>
+            <div class="navbar-collapse collapse">
+              <ul class="nav navbar-nav">
+                <li class="active"><a href="/">Home</a></li>
+                <li><a href="#things">My Things</a></li>
+                <li><a href="#rules">My Rules</a></li>
+                <li><a href="#settings">Settings</a></li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+
+        <!-- The application content. -->
+        <div class="container">
+          {% block content %}{% endblock %}
+        </div>
+
+    <!------------------------- JavaScript --------------------------->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <!---------------------------------------------------------------->
+    
+    <!-- Fall back to the local copy of jQuery if the CDN is down. -->
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script>window.jQuery || document.write('<script src="{% static 'js/vendor/jquery.min.js' %}"><\/script>')</script>
+
+    <!-- Enable responsive web design in browsers that don't support CSS3 media queries. -->  
+    <script src="{% static 'js/vendor/respond.min.js' %}"></script>
+
+    <!-- Bootstrap core JavaScript. -->
+    <script src="{% static 'js/vendor/bootstrap.min.js' %}"></script>
+    
+    <!-- Useful helper functions. -->
+    <script src="{% static 'js/helper.js' %}"></script>
+    
+    <!-- The application scripting. -->
+    <script src="{% static 'js/main.js' %}"></script>
+    
+    <!-- Block for page specific scripting. -->
+    {% block js %}{% endblock %}
+  </body>
+  </html>

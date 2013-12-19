@@ -1,0 +1,32 @@
+{% extends "things/base.html" %}
+{% load staticfiles %}
+
+{% block css %}
+<link href="{% static 'css/signin.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>IoT Dashboard</h2>
+</div>
+{% if things %}
+<div class="row">
+    {% for thing in things %}
+    <div class="col-md-4">
+        <div class="panel panel-default">
+            <div class="panel-heading"><h3 class="panel-title">{{ thing.name }}</h3></div>
+            <ul class="list-group">
+                <li class="list-group-item"><strong>Connected: </strong>{{thing.connected}}</li>
+                <li class="list-group-item"><strong>Address: </strong>{{thing.addr}}</li>
+                <li class="list-group-item"><strong>Type: </strong>{{thing.dev_type}}</li>
+                <li class="list-group-item"><strong>Temperature: </strong>{{thing.data}}C</li>
+                <li class="list-group-item"><button type="button" class="btn btn-default btn-block">Edit</button></li>
+            </ul>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<strong>NIENTE</strong>
+{% endif %}
+{% endblock %}

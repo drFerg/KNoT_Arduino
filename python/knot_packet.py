@@ -37,12 +37,31 @@ query_response = Struct('query_response',
     CString('name'),
     )
 
+serial_query_response = Struct('serial_query_response',
+    ULInt8('type'),
+    ULInt16('rate'),
+    String('name', 16),
+    ULInt8('src'),
+    )
+
+serial_response = Struct('serial_response',
+    ULInt16('data'),
+    String('name', 16),
+    ULInt8('src'),
+    )
+
+serial_connect_ack = Struct('serial_connect_ack',
+    ULInt8('accept'),
+    String('name', 16),
+    ULInt8('src')
+    )
+
 if __name__ == "__main__":
     raw = data_payload.build(Container(
         seqno=1,
         src_chan_num=1,
         dst_chan_num=0,
-        cmd= 1,
+        cmd=1,
         chksum=1,
         tlen=0)
     )

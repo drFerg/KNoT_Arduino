@@ -3,7 +3,6 @@
 #include <TimerOne.h>
 #include "EEPROM.h"
 #include "cc1101.h"
-#include <MemoryFree.h>
 
 #include "cpu_temp.h"
 #include "knot_protocol.h"
@@ -29,9 +28,9 @@
 #define NETWORK_EVENT packetAvailable()
 #define TIMER_EVENT timer_expired()
 
-#define LIGHT A0
+#define RICE_COOK_PIN A0
 #define TEMP_PIN A7
-#define DEVICE_ADDRESS 3
+
 char sensor_name[] = "Bedroom";
 uint8_t sensor_type = TEMP;
 
@@ -40,6 +39,10 @@ ChannelState home_channel_state;
 float ambientTemp(){
 	int reading = analogRead(TEMP_PIN);
 	return (100 * reading * 3.3)/1024;
+}
+
+int isCooking(){
+	return (analogRead(RICE_COOK_PIN) > 100 ? 1 : 0);
 }
 
 void query_handler(ChannelState *state, DataPayload *dp){
@@ -118,7 +121,7 @@ void send_value(ChannelState *state){
 	ResponseMsg *rmsg = (ResponseMsg*)&(new_dp->data);
 	clean_packet(new_dp);
 	//state->ccb.callback(NULL, &data);
-	rmsg->data = (int)getCPUTemp();
+	rmsg->data = (int)isCooking();
 	//rmsg.data = analogRead(LIGHT);
 	//rmsg.data = (int)ambientTemp();
 	strcpy(rmsg->name, sensor_name);
@@ -198,8 +201,6 @@ void network_handler(){
 
 	
 	/* PUT IN QUERY CHECK FOR TYPE */
-	Serial.print(F("Memory left:"));
-	Serial.println(freeMemory());
 	switch(cmd){
 		case(QUERY):   		query_handler(state, &dp);		break;
 		case(CONNECT): 		connect_handler(state, &dp);	break;

@@ -98,4 +98,22 @@ typedef struct data_response{
    unsigned char data[MAX_DATA_SIZE-1];
 }DataResponseMsg;
 
+typedef struct serial_query_response{
+   uint8_t type;
+   uint16_t rate;
+   char name[NAME_SIZE];
+   uint8_t src;
+}SerialQueryResponseMsg;
+
+typedef struct serial_response{
+   uint16_t data;
+   char name[NAME_SIZE];
+   uint8_t src;
+}SerialResponseMsg;
+
+typedef struct serial_cack{
+   uint8_t accept;
+   char name[NAME_SIZE];
+   uint8_t src;
+}SerialConnectACKMsg;
 #endif /* KNOT_PROTOCOL_H */
