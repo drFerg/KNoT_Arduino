@@ -27,7 +27,7 @@
 #define is_timer_free(time) (time.timer == -1)
 
 typedef struct timer {
-	int timer;
+	int32_t timer;
 	int value; /* values to pass to callback */
 	void (*callback)(int);
 }Timer;

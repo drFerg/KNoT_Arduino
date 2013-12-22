@@ -76,6 +76,8 @@ void connect_handler(ChannelState *state, DataPayload *dp){
 	state->remote_chan_num = dp->hdr.src_chan_num;
 	if (cm->rate > DATA_RATE){
 		state->rate = cm->rate;
+		Serial.print("The rate is set to: ");
+		Serial.println(state->rate);
 	} else {
 		state->rate = DATA_RATE;
 		Serial.println(cm->rate);
@@ -121,9 +123,9 @@ void send_value(ChannelState *state){
 	ResponseMsg *rmsg = (ResponseMsg*)&(new_dp->data);
 	clean_packet(new_dp);
 	//state->ccb.callback(NULL, &data);
-	rmsg->data = (int)isCooking();
-	//rmsg.data = analogRead(LIGHT);
-	//rmsg.data = (int)ambientTemp();
+	//rmsg->data = (int)isCooking();
+	//rmsg->data = analogRead(LIGHT);
+	rmsg->data = (int)getCPUTemp();
 	strcpy(rmsg->name, sensor_name);
 	
 	// Send a Response SYN or Response
@@ -136,7 +138,7 @@ void send_value(ChannelState *state){
     	state->ticks--;
     }
     new_dp->hdr.src_chan_num = state->chan_num;
-	new_dp->hdr.dst_chan_num = state->remote_chan_num;
+		new_dp->hdr.dst_chan_num = state->remote_chan_num;
     new_dp->dhdr.tlen = sizeof(ResponseMsg);
     Serial.print(F("Sending data\n"));
     send_on_knot_channel(state, new_dp);
@@ -208,7 +210,7 @@ void network_handler(){
 		case(PING):   		ping_handler(state, &dp);		break;
 		case(PACK):   		pack_handler(state, &dp);		break;
 		case(RACK):			rack_handler(state, &dp);		break;
-		case(DISCONNECT): 	close_handler(state,&dp);		break;
+		case(DISCONNECT): 	close_handler(state, &dp);		break;
 		default:			Serial.print(F("Unknown CMD type\n"));
 	}
 

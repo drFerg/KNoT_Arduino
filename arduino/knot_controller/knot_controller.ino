@@ -4,7 +4,6 @@
 #include <EEPROM.h>
 #include <cc1101.h>
 #include <TimerOne.h>
-#include "ocb.h"
 #include "knot_protocol.h"
 #include "payloads.h"
 #include "callback_timer.h"
@@ -204,18 +203,22 @@ void network_handler() {
 		state = &home_channel_state;
 		state->remote_addr = src; /* Rest of disconnect handled later */
   	} else if (dp.hdr.dst_chan_num == HOME_CHANNEL && cmd == QACK) {
-		state = &home_channel_state;/* Special case for Homechannel which only */
-		state->remote_addr = src;   /* responds to QACKs */
+			state = &home_channel_state;/* Special case for Homechannel which only */
+			state->remote_addr = src;   /* responds to QACKs */
   	} else { /* The rest of the channels */
-		state = get_channel_state(dp.hdr.dst_chan_num);
-		if (state == NULL){
-			PRINT("Channel ");Serial.print(dp.hdr.dst_chan_num);PRINT(" doesn't exist\n");
-			return;
-		}
-		if (check_seqno(state, &dp) == 0) {
-			PRINT("OH NOES\n");
-			return;
-		} else { 
+			state = get_channel_state(dp.hdr.dst_chan_num);
+			if (state == NULL){ 
+				PRINT("Channel ");Serial.print(dp.hdr.dst_chan_num);PRINT(" doesn't exist\n");
+				state = &home_channel_state;/* Special case for Homechannel which only */
+				state->remote_chan_num = dp.hdr.src_chan_num;
+				state->remote_addr = src;   /* responds to QACKs */
+				close_graceful(state);
+				return;
+			}
+			if (check_seqno(state, &dp) == 0) {
+				PRINT("OH NOES\n");
+				return;
+			} else { 
 			//CHECK IF RIGHT CONNECTION	
 		}
 	}
