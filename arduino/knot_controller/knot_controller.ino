@@ -16,8 +16,10 @@
 
 #if DEBUG
 #define PRINT(...) Serial.print(__VA_ARGS__)
+#define PRINTLN(...) Serial.println(__VA_ARGS__)
 #else
 #define PRINT(...)
+#define PRINTLN(...)
 #endif
 
 #define SERIAL_SEARCH 1
@@ -178,63 +180,62 @@ void network_handler() {
 
 	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
-	if (src) {
-		PRINT("KNoT>> Received packet from Thing: ");
-		Serial.println(src);
-	} else {
-		return;//The cake was a lie
-	}
+	if (!src) return; /* The cake was a lie */
+	PRINT("KNoT>> Received packet from Thing: ");
+	PRINTLN(src);
 
-	PRINT("Data is ");Serial.print(dp.dhdr.tlen);
+	PRINT("Data is ");PRINT(dp.dhdr.tlen);
 	PRINT(" bytes long\n");
 	unsigned short cmd = dp.hdr.cmd;
-	PRINT("Received a ");Serial.print(cmdnames[cmd]);
+	PRINT("Received a ");PRINT(cmdnames[cmd]);
 	PRINT(" command.\n");
-	PRINT("Message for channel ");Serial.println(dp.hdr.dst_chan_num);
+	PRINT("Message for channel ");PRINTLN(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
 
-	/* Always allow disconnections to prevent crazies */
-	if (cmd == DISCONNECT) {
-  		state = get_channel_state(dp.hdr.dst_chan_num);
-		if (state){
-			remove_channel(state->chan_num);
-		}
+	if (cmd == QACK) {
+		state = &home_channel_state;/* Special case for Homechannel which only */
+		state->remote_addr = src;   /* responds to QACKs */
+		qack_handler(state, &dp);
+		return;
+	} 
+	/* Grab state for requested channel */
+	state = get_channel_state(dp.hdr.dst_chan_num);
+
+	/* Check state, if non-existent ask to kindly close the connection */
+	if (state == NULL){ 
+		PRINT("Channel ");PRINT(dp.hdr.dst_chan_num);PRINT(" doesn't exist\n");
 		state = &home_channel_state;
-		state->remote_addr = src; /* Rest of disconnect handled later */
-  	} else if (dp.hdr.dst_chan_num == HOME_CHANNEL && cmd == QACK) {
-			state = &home_channel_state;/* Special case for Homechannel which only */
-			state->remote_addr = src;   /* responds to QACKs */
-  	} else { /* The rest of the channels */
-			state = get_channel_state(dp.hdr.dst_chan_num);
-			if (state == NULL){ 
-				PRINT("Channel ");Serial.print(dp.hdr.dst_chan_num);PRINT(" doesn't exist\n");
-				state = &home_channel_state;/* Special case for Homechannel which only */
-				state->remote_chan_num = dp.hdr.src_chan_num;
-				state->remote_addr = src;   /* responds to QACKs */
-				close_graceful(state);
-				return;
-			}
-			if (check_seqno(state, &dp) == 0) {
-				PRINT("OH NOES\n");
-				return;
-			} else { 
-			//CHECK IF RIGHT CONNECTION	
-		}
+		state->remote_chan_num = dp.hdr.src_chan_num;
+		state->remote_addr = src;
+		close_graceful(state);
+		return;
+	}
+  /* Verify packet is new */
+	if (check_seqno(state, &dp) == 0) {
+		PRINT("Old paclet\n");
+		return;
+	}
+
+	/* Special case for disconnect */
+	if (cmd == DISCONNECT) {
+		if (state) remove_channel(state->chan_num);
+		state = &home_channel_state;
+		state->remote_addr = src; /* Rest of disconnect handled later */ 
 	}
 
 	switch(cmd) {
 		case(QUERY):    	break;
 		case(CONNECT): 	 	break;
-		case(QACK):     	qack_handler(state, &dp);break;
-		case(CACK):     	cack_handler(state, &dp);break;
-		case(RESPONSE): 	response_handler(state, &dp);break;
-		case(RSYN):		 	response_handler(state, &dp);send_rack(state);break;
+		case(QACK):     	break;
+		case(CACK):     	cack_handler(state, &dp); break;
+		case(RESPONSE): 	response_handler(state, &dp); break;
+		case(RSYN):		 	  response_handler(state, &dp); send_rack(state); break;
 		// case(CMDACK):   	command_ack_handler(state,dp);break;
-		case(PING):     	ping_handler(state, &dp);break;
-		case(PACK):     	pack_handler(state, &dp);break;
-		case(DISCONNECT): 	close_handler(state,&dp);break;
-		default: 			PRINT("Unknown CMD type\n");
+		case(PING):     	ping_handler(state, &dp); break;
+		case(PACK):     	pack_handler(state, &dp); break;
+		case(DISCONNECT): close_handler(state,&dp);	break;
+		default: 			    PRINT("Unknown CMD type\n");
 	}
 
 }
