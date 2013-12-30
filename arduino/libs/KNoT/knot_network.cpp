@@ -28,7 +28,7 @@ void increment_seq_no(ChannelState *state, DataPayload *dp){
    dp->hdr.seqno = state->seqno;
 }
 
-int check_seqno(ChannelState *state, DataPayload *dp){
+int valid_seqno(ChannelState *state, DataPayload *dp){
    if (state->seqno > dp->hdr.seqno){ // Old packet or sender confused
       return 0;
    } else {

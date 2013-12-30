@@ -41,11 +41,13 @@ int serial_index = 0;
 int addr = 0;
 char serialpkt[32];
 
-void qack_handler(ChannelState *state, DataPayload *dp) {
+void qack_handler(DataPayload *dp, uint8_t src) {
+    ChannelState *state = &home_channel_state;
 	if (state->state != STATE_QUERY) {
 		PRINT("Not in Query state\n");
 		return;
 	}
+    state->remote_addr = src; 
 	PRINT("Query ACK received from Thing: \n");
 	PRINTLN(state->remote_addr);
 	SerialQueryResponseMsg *qr = (SerialQueryResponseMsg *) &dp->data;
@@ -96,6 +98,13 @@ void response_handler(ChannelState *state, DataPayload *dp){
 	srmsg->src = state->remote_addr;
 	write_to_serial((char *)dp, sizeof(DataPayload));
 	
+}
+
+void disconnect_handler(ChannelState *state, DataPayload *dp, uint8_t src){
+    if (state) remove_channel(state->chan_num);
+    state = &home_channel_state;
+    state->remote_addr = src; /* Rest of disconnect handled later */ 
+    close_handler(state, dp);
 }
 
 void send_rack(ChannelState *state){
@@ -157,10 +166,8 @@ void check_timer(ChannelState *s) {
             close_graceful(s);
             remove_channel(s->chan_num);
         }
-
     }
 }
-
 
 /* Run once every 20ms */
 void cleaner(int trash){
@@ -172,7 +179,6 @@ void cleaner(int trash){
             check_timer(&home_channel_state);
     }
 }
-
 
 void network_handler() {
 	DataPayload dp;
@@ -186,51 +192,35 @@ void network_handler() {
 	PRINT("Received a ");PRINT(cmdnames[cmd]);PRINT(" command.\n");
 	PRINT("Message for channel ");PRINTLN(dp.hdr.dst_chan_num);
 	
-	ChannelState *state = NULL;
-
-	if (cmd == QACK) {
-		state = &home_channel_state;/* Special case for Homechannel which only */
-		state->remote_addr = src;   /* responds to QACKs */
-		qack_handler(state, &dp);
-		return;
-	} 
-	/* Grab state for requested channel */
-	state = get_channel_state(dp.hdr.dst_chan_num);
-
-	/* Check state, if non-existent ask to kindly close the connection */
-	if (state == NULL){ 
+    switch(cmd) { /* Drop packets for cmds we don't accept */
+        case(QUERY):   return;
+        case(CONNECT): return;
+        case(QACK):    qack_handler(&dp, src);return;
+    }
+    /* Grab state for requested channel */
+	ChannelState *state = get_channel_state(dp.hdr.dst_chan_num);
+	if (!state){ /* Attempt to kill connection if no state held */
 		PRINT("Channel ");PRINT(dp.hdr.dst_chan_num);PRINT(" doesn't exist\n");
 		state = &home_channel_state;
 		state->remote_chan_num = dp.hdr.src_chan_num;
 		state->remote_addr = src;
 		close_graceful(state);
 		return;
-	}
-  /* Verify packet is new */
-	if (check_seqno(state, &dp) == 0) {
-		PRINT("Old paclet\n");
+	} else if (!valid_seqno(state, &dp)) {
+		PRINT("Old packet\n");
 		return;
 	}
 
-	/* Special case for disconnect */
-	if (cmd == DISCONNECT) {
-		if (state) remove_channel(state->chan_num);
-		state = &home_channel_state;
-		state->remote_addr = src; /* Rest of disconnect handled later */ 
-	}
-
 	switch(cmd) {
-		case(QUERY):    	break;
-		case(CONNECT): 	 	break;
-		case(QACK):     	break;
-		case(CACK):     	cack_handler(state, &dp); break;
-		case(RESPONSE): 	response_handler(state, &dp); break;
-		case(RSYN):		 	  response_handler(state, &dp); send_rack(state); break;
+		case(CACK):     	cack_handler(state, &dp);            break;
+		case(RESPONSE): 	response_handler(state, &dp);        break;
+		case(RSYN):		 	response_handler(state, &dp); send_rack(state); break;
 		// case(CMDACK):   	command_ack_handler(state,dp);break;
-		case(PING):     	ping_handler(state, &dp); break;
-		case(PACK):     	pack_handler(state, &dp); break;
-		case(DISCONNECT): close_handler(state,&dp);	break;
-		default: 			    PRINT("Unknown CMD type\n");
+		case(PING):     	ping_handler(state, &dp);            break;
+		case(PACK):     	pack_handler(state, &dp);            break;
+		case(DISCONNECT):   disconnect_handler(state, &dp, src); break;
+        case(DACK):                                              break;
+		default: 			PRINT("Unknown CMD type\n");
 	}
 
 }
@@ -258,7 +248,6 @@ void serial_handler(){
 	}
 }
 
-
 void setup(){
 	Serial.begin(38400);
 	PRINT(">> Controller initialising...");
@@ -266,7 +255,7 @@ void setup(){
 	ledIOSetup();
 	init_table();
 	init_knot_network();
-	set_dev_addr(random(1,256));
+	set_dev_addr(1);
 	blinker();
 	home_channel_state.chan_num = 0;
 	home_channel_state.remote_chan_num = 0;
@@ -274,7 +263,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	attach_serial(serial_handler, serialpkt);
-	set_timer(0.02, 0, &cleaner); /* Set cleaner to run every 2secs - TESTING */
+	set_timer(0.02, 0, &cleaner); /* Set cleaner to run every 0.02secs - TESTING */
 	PRINT(">> Controller initialised!");
 	}
 

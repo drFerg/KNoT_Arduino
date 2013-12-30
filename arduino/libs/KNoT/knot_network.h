@@ -44,7 +44,7 @@ void dp_complete(DataPayload *dp, uint8_t src, uint8_t dst,
              uint8_t cmd, uint8_t len);
 
 /* Checks the sequence number and returns 1 if in sequence, 0 otherwise */
-int check_seqno(ChannelState *state, DataPayload *dp);
+int valid_seqno(ChannelState *state, DataPayload *dp);
 
 /* Sends DataPayload on a KNoT channel specified in the state */
 void send_on_knot_channel(ChannelState *state, DataPayload *dp);

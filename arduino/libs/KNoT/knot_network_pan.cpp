@@ -69,7 +69,6 @@ void send_to_address(int addr, DataPayload *dp){
 	memcpy(&(pkt.data[2]), dp, (pkt.length - 2)); // append payload
 	bool suc = false;
 	int tries = MAX_TX_RETRIES;
-
 	while((!suc) && tries > 0){
 		suc = radio.sendData(pkt);
 		tries--;
@@ -78,12 +77,12 @@ void send_to_address(int addr, DataPayload *dp){
 		Serial.print(F("RADIO>> Sent packet to: "));Serial.println(pkt.data[0]);
 		Serial.print(F("RADIO>> Tries: "));Serial.println(5 - tries);
 		Serial.print(F("RADIO>> Sent "));Serial.print(pkt.length);Serial.print(" bytes\n");
-		blink();
 	}
 	else {
 		Serial.print(F("RADIO>> Transmission failed???\n"));
 	}
 	enable_RF_IRQ(); //Enable RX interrupts
+	blink();
 }
 
 
@@ -110,7 +109,6 @@ int recv_pkt(DataPayload *dp){
 	CCPACKET packet;
 	if (!packetAvailable()) return 0;
 	disable_RF_IRQ();
-	blink();
 	available = 0;
 	int len = radio.receiveData(&packet);
 	if(len > 0) {
@@ -118,6 +116,7 @@ int recv_pkt(DataPayload *dp){
 		    memcpy(dp, &(packet.data[2]), (packet.length - 2));
 		    Serial.print(F("RADIO>> Received a pkt for addr: "));Serial.println(packet.data[0]);
 		  	enable_RF_IRQ();
+		  	blink();
 		  	return packet.data[1];
   		} else {
   			Serial.print(F("RADIO>> Bad packet.\n"));

@@ -12,7 +12,7 @@
 #include "channeltable.h"
 #include "callback_timer.h"
 #include "LED.h"
-
+#define DEBUG 1
 #if DEBUG
 #define PRINT(...) Serial.print(__VA_ARGS__)
 #define PRINTLN(...) Serial.println(__VA_ARGS__)
@@ -21,7 +21,7 @@
 #define PRINTLN(...)
 #endif
 
-#define TIMEOUT 0.5
+#define TIMEOUT 0.1
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
 #define HOME_CHANNEL 0
@@ -38,7 +38,7 @@
 #define RICE_COOK_PIN A0
 #define TEMP_PIN A7
 
-char sensor_name[] = "Bedroom";
+char sensor_name[] = "CPU";
 uint8_t sensor_type = TEMP;
 
 ChannelState home_channel_state;
@@ -52,14 +52,16 @@ int isCooking(){
 	return (analogRead(RICE_COOK_PIN) > 100 ? 1 : 0);
 }
 
-void query_handler(ChannelState *state, DataPayload *dp){
+void query_handler(DataPayload *dp, uint8_t src){
+	ChannelState *state = &home_channel_state;
+	state->remote_addr = src;
 	QueryMsg *q = (QueryMsg*)(dp->data);
 	if (q->type != sensor_type){
 		PRINT(F("Query doesn't match type\n"));
 		return;
-	} else {
-		PRINT(F("Query matches type\n"));
 	}
+	PRINT(F("Query matches type\n"));
+	
 	DataPayload *new_dp = &(state->packet);
 	QueryResponseMsg *qr = (QueryResponseMsg*)&(new_dp->data);
 	clean_packet(new_dp);
@@ -73,7 +75,10 @@ void query_handler(ChannelState *state, DataPayload *dp){
 }
 
 
-void connect_handler(ChannelState *state, DataPayload *dp){
+void connect_handler(DataPayload *dp, uint8_t src){
+	ChannelState *state = new_channel();
+	PRINT(F("Sensor: New Channel\n"));
+	state->remote_addr = src;
 	ConnectMsg *cm = (ConnectMsg*)dp->data;
 	PRINT(cm->name);PRINT(F(" wants to connect from channel "));
 	PRINTLN(dp->hdr.src_chan_num);
@@ -157,68 +162,46 @@ void rack_handler(ChannelState *state, DataPayload *dp){
 
 void network_handler(){
 	DataPayload dp;
+	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
-	if (src){
-		PRINT(F("KNoT>> Received packet from "));
-		PRINTLN(src);
-	}
-	else {
-		return;
-	}
+	if (!src) return; /* The cake was a lie */
+    uint8_t cmd = dp.hdr.cmd;
+	PRINT("KNoT>> Received packet from Thing: ");PRINTLN(src);
+	PRINT("Data is ");PRINT(dp.dhdr.tlen);PRINT(" bytes long\n");
+	PRINT("Received a ");PRINT(cmdnames[cmd]);PRINT(" command.\n");
+	PRINT("Message for channel ");PRINTLN(dp.hdr.dst_chan_num);
 	
-	PRINT(F("Data is "));PRINT(dp.dhdr.tlen);PRINT(F(" bytes long\n"));
-	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
-	PRINT(F("Received a "));
-	PRINT(cmdnames[cmd]);
-	PRINT(F(" command.\n"));
-	PRINT(F("Message for channel "));
-	PRINTLN(dp.hdr.dst_chan_num);
-	
-	ChannelState *state = NULL;
+	switch(cmd){
+		case(QUERY):   		query_handler(&dp, src);	return;
+		case(CONNECT): 		connect_handler(&dp, src);  return;
+	}
+
+	ChannelState *state = get_channel_state(dp.hdr.dst_chan_num);
 	/* Always allow disconnections to prevent crazies */
-	if (cmd == DISCONNECT){
-		state = get_channel_state(dp.hdr.dst_chan_num);
-		if (state){
+	if (cmd == DISCONNECT) {
+		if (state) {
+			remove_timer(state->timer);
 			remove_channel(state->chan_num);
 		}
 		state = &home_channel_state;
-		state->remote_addr = src;
-  	} else if (dp.hdr.dst_chan_num == HOME_CHANNEL){
-  		/* Homechannel only responds to QUERYs and CONNECTs */
-		if (cmd == QUERY){
-			state = &home_channel_state;
-			state->remote_addr = src;
-  		} else if (cmd == CONNECT){
-  			state = new_channel();
-  			PRINT(F("Sensor: New Channel\n"));
-  			state->remote_addr = src;
-  		} else return; //Otherwise quit
-  	} else {
-		state = get_channel_state(dp.hdr.dst_chan_num);
-		if (state == NULL){
-			PRINT(F("Channel doesn't exist\n"));
-			return;
-		} else if (check_seqno(state, &dp) == 0){
-			PRINT(F("Oh no\n"));
-			return;
-		} else {
-		 // CHECK IF RIGHT CONNECTION
-		}
- 	}
-
-	
+		state->remote_addr = src; /* Rest of disconnect handled later */ 
+	} else if (!state){
+		PRINT(F("Channel doesn't exist\n"));
+		return;
+	} else if (!valid_seqno(state, &dp)){
+		PRINT("Old packet\n");
+		return;
+	}
 	/* PUT IN QUERY CHECK FOR TYPE */
 	switch(cmd){
-		case(QUERY):   		query_handler(state, &dp);		break;
-		case(CONNECT): 		connect_handler(state, &dp);	break;
-		case(CACK):   		cack_handler(state, &dp);		break;
-		case(PING):   		ping_handler(state, &dp);		break;
-		case(PACK):   		pack_handler(state, &dp);		break;
-		case(RACK):			rack_handler(state, &dp);		break;
-		case(DISCONNECT): 	close_handler(state, &dp);		break;
+		case(CACK):   		cack_handler(state, &dp);	break;
+		case(PING):   		ping_handler(state, &dp);	break;
+		case(PACK):   		pack_handler(state, &dp);	break;
+		case(RACK):			rack_handler(state, &dp);	break;
+		case(DISCONNECT): 	close_handler(state, &dp);	break;
 		default:			PRINT(F("Unknown CMD type\n"));
 	}
-
+	PRINTLN("FINISHED.");
 }
 
 void send_handler(int chan){
