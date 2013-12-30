@@ -47,10 +47,10 @@ void qack_handler(ChannelState *state, DataPayload *dp) {
 		return;
 	}
 	PRINT("Query ACK received from Thing: \n");
-	Serial.println(state->remote_addr);
+	PRINTLN(state->remote_addr);
 	SerialQueryResponseMsg *qr = (SerialQueryResponseMsg *) &dp->data;
 	qr->src = state->remote_addr;
-	Serial.println(qr->src);
+	PRINTLN(qr->src);
 	write_to_serial((char *)dp, sizeof(DataPayload));
 }
 
@@ -65,9 +65,8 @@ void cack_handler(ChannelState *state, DataPayload *dp){
 		remove_channel(state->chan_num);
 		return;
 	}
-	Serial.print(ck->name);
-	PRINT(" accepts connection request on channel ");
-	Serial.println(dp->hdr.src_chan_num);
+	PRINT(ck->name);PRINT(" accepts connection request on channel ");
+	PRINTLN(dp->hdr.src_chan_num);
 	state->remote_chan_num = dp->hdr.src_chan_num;
 
 	DataPayload *new_dp = &(state->packet);
@@ -92,7 +91,7 @@ void response_handler(ChannelState *state, DataPayload *dp){
 	}
 	set_ticks(state, TICKS); /* RESET PING TIMER */
 	ResponseMsg *rmsg = (ResponseMsg *)dp->data;
-	Serial.print(rmsg->name); Serial.print(": "); Serial.println(rmsg->data);
+	PRINT(rmsg->name); PRINT(": "); PRINTLN(rmsg->data);
 	SerialResponseMsg *srmsg = (SerialResponseMsg *)dp->data;
 	srmsg->src = state->remote_addr;
 	write_to_serial((char *)dp, sizeof(DataPayload));
@@ -108,17 +107,17 @@ void send_rack(ChannelState *state){
 }
 
 void service_search(ChannelState* state, uint8_t type){
-  DataPayload *new_dp = &(state->packet); 
-  clean_packet(new_dp);
-  dp_complete(new_dp, HOME_CHANNEL, HOME_CHANNEL, 
+    DataPayload *new_dp = &(state->packet); 
+    clean_packet(new_dp);
+    dp_complete(new_dp, HOME_CHANNEL, HOME_CHANNEL, 
              QUERY, sizeof(QueryMsg));
-  QueryMsg *q = (QueryMsg *) new_dp->data;
-  q->type = type;
-  strcpy(q->name, controller_name);
-  knot_broadcast(state, new_dp);
-  set_ticks(state, TICKS);
-  set_state(state, STATE_QUERY);
-  // Set timer to exit Query state after 5 secs~
+    QueryMsg *q = (QueryMsg *) new_dp->data;
+    q->type = type;
+    strcpy(q->name, controller_name);
+    knot_broadcast(state, new_dp);
+    set_ticks(state, TICKS);
+    set_state(state, STATE_QUERY);
+    // Set timer to exit Query state after 5 secs~
 }
 
 void init_connection_to(uint8_t addr, int rate){
@@ -140,7 +139,7 @@ void init_connection_to(uint8_t addr, int rate){
 	
 }
 
-
+/* Checks the timer for a channel's state, retransmitting when necessary */
 void check_timer(ChannelState *s) {
     if (s == NULL) return;
     if (in_waiting_state(s)) {
@@ -165,7 +164,7 @@ void check_timer(ChannelState *s) {
 
 /* Run once every 20ms */
 void cleaner(int trash){
-	Serial.print("Cleaning\n");
+	PRINT("Cleaning\n");
     for (int i = 1; i < CHANNEL_NUM; i++) {
             check_timer(get_channel_state(i));
     }
@@ -181,14 +180,10 @@ void network_handler() {
 	/* Gets data from the connection */
 	uint8_t src = recv_pkt(&dp);
 	if (!src) return; /* The cake was a lie */
-	PRINT("KNoT>> Received packet from Thing: ");
-	PRINTLN(src);
-
-	PRINT("Data is ");PRINT(dp.dhdr.tlen);
-	PRINT(" bytes long\n");
-	unsigned short cmd = dp.hdr.cmd;
-	PRINT("Received a ");PRINT(cmdnames[cmd]);
-	PRINT(" command.\n");
+    uint8_t cmd = dp.hdr.cmd;
+	PRINT("KNoT>> Received packet from Thing: ");PRINTLN(src);
+	PRINT("Data is ");PRINT(dp.dhdr.tlen);PRINT(" bytes long\n");
+	PRINT("Received a ");PRINT(cmdnames[cmd]);PRINT(" command.\n");
 	PRINT("Message for channel ");PRINTLN(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
@@ -246,7 +241,7 @@ void serial_service_search(DataPayload *dp){
 
 void serial_init_connection_to(DataPayload *dp){
 	SerialConnect *sc = (SerialConnect*)dp->data;
-	Serial.print("Serial init conn to: ");Serial.println(dp->data[1]);
+	PRINT("Serial init conn to: ");PRINTLN(dp->data[1]);
 	init_connection_to(sc->addr, sc->rate);
 }
 
@@ -254,8 +249,8 @@ void serial_handler(){
 	DataPayload *dp = (DataPayload *)serialpkt;
 	PRINT("SERIAL> Serial command received.\n");
 	unsigned short cmd = dp->hdr.cmd;
-	Serial.print("SERIAL> Packet length:");Serial.println(dp->dhdr.tlen);
-	PRINT("SERIAL> Message for channel ");Serial.println(dp->hdr.dst_chan_num);
+	PRINT("SERIAL> Packet length:");PRINTLN(dp->dhdr.tlen);
+	PRINT("SERIAL> Message for channel ");PRINTLN(dp->hdr.dst_chan_num);
 
 	switch (cmd) {
 		case(SERIAL_SEARCH):  serial_service_search(dp);break;
@@ -279,7 +274,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	attach_serial(serial_handler, serialpkt);
-	set_timer(2, 0, &cleaner);
+	set_timer(0.02, 0, &cleaner); /* Set cleaner to run every 2secs - TESTING */
 	PRINT(">> Controller initialised!");
 	}
 

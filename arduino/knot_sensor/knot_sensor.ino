@@ -13,6 +13,13 @@
 #include "callback_timer.h"
 #include "LED.h"
 
+#if DEBUG
+#define PRINT(...) Serial.print(__VA_ARGS__)
+#define PRINTLN(...) Serial.println(__VA_ARGS__)
+#else
+#define PRINT(...)
+#define PRINTLN(...)
+#endif
 
 #define TIMEOUT 0.5
 #define PING_WAIT 3
@@ -48,10 +55,10 @@ int isCooking(){
 void query_handler(ChannelState *state, DataPayload *dp){
 	QueryMsg *q = (QueryMsg*)(dp->data);
 	if (q->type != sensor_type){
-		Serial.print(F("Query doesn't match type\n"));
+		PRINT(F("Query doesn't match type\n"));
 		return;
 	} else {
-		Serial.print(F("Query matches type\n"));
+		PRINT(F("Query matches type\n"));
 	}
 	DataPayload *new_dp = &(state->packet);
 	QueryResponseMsg *qr = (QueryResponseMsg*)&(new_dp->data);
@@ -68,19 +75,19 @@ void query_handler(ChannelState *state, DataPayload *dp){
 
 void connect_handler(ChannelState *state, DataPayload *dp){
 	ConnectMsg *cm = (ConnectMsg*)dp->data;
-	Serial.print(cm->name);Serial.print(F(" wants to connect from channel "));
-	Serial.println(dp->hdr.src_chan_num);
-	Serial.print(F("Replying on channel "));Serial.println(state->chan_num);
+	PRINT(cm->name);PRINT(F(" wants to connect from channel "));
+	PRINTLN(dp->hdr.src_chan_num);
+	PRINT(F("Replying on channel "));PRINTLN(state->chan_num);
 	/* Request src must be saved to message back */
 
 	state->remote_chan_num = dp->hdr.src_chan_num;
 	if (cm->rate > DATA_RATE){
 		state->rate = cm->rate;
-		Serial.print("The rate is set to: ");
-		Serial.println(state->rate);
+		PRINT("The rate is set to: ");
+		PRINTLN(state->rate);
 	} else {
 		state->rate = DATA_RATE;
-		Serial.println(cm->rate);
+		PRINTLN(cm->rate);
 	}
 	DataPayload *new_dp = &(state->packet);
 	ConnectACKMsg *ck = (ConnectACKMsg *)&(new_dp->data);
@@ -95,26 +102,26 @@ void connect_handler(ChannelState *state, DataPayload *dp){
 	// Set up timer to ensure reliability
 	state->timer = set_timer(TIMEOUT, state->chan_num, &reliable_retry);
 	if (state->timer == -1){
-		Serial.print(F("ERROR>> Setting timer failed!!\n"));
+		PRINT(F("ERROR>> Setting timer failed!!\n"));
 	}// Shouldn't happen...
 }
 
 void cack_handler(ChannelState *state, DataPayload *dp){
 	if (state->state != STATE_CONNECT){
-		Serial.print(F("Not in Connecting state\n"));
+		PRINT(F("Not in Connecting state\n"));
 		return;
 	}
 	//Disable timer now that message has been received successfully
 	remove_timer(state->timer);
 	state->ticks = state->rate * PING_RATE;
-	Serial.print(F("TX rate: "));Serial.println(state->rate);
+	PRINT(F("TX rate: "));PRINTLN(state->rate);
 	// Setup sensor polling
 	state->timer = set_timer(state->rate, state->chan_num, &send_handler);
 	if (state->timer == -1){
-		Serial.print(F("ERROR>> Setting sensor timer failed!!\n"));
+		PRINT(F("ERROR>> Setting sensor timer failed!!\n"));
 	}// Shouldn't happen...
 
-	Serial.print(F(">>CONNECTION FULLY ESTABLISHED<<\n"));
+	PRINT(F(">>CONNECTION FULLY ESTABLISHED<<\n"));
 	state->state = STATE_CONNECTED;
 }
 
@@ -140,34 +147,32 @@ void send_value(ChannelState *state){
     new_dp->hdr.src_chan_num = state->chan_num;
 		new_dp->hdr.dst_chan_num = state->remote_chan_num;
     new_dp->dhdr.tlen = sizeof(ResponseMsg);
-    Serial.print(F("Sending data\n"));
+    PRINT(F("Sending data\n"));
     send_on_knot_channel(state, new_dp);
 }
 
 void rack_handler(ChannelState *state, DataPayload *dp){
-	Serial.print(F("The other end is still alive!\n"));
+	PRINT(F("The other end is still alive!\n"));
 }
 
 void network_handler(){
 	DataPayload dp;
 	uint8_t src = recv_pkt(&dp);
 	if (src){
-		Serial.print(F("KNoT>> Received packet from "));
-		Serial.println(src);
+		PRINT(F("KNoT>> Received packet from "));
+		PRINTLN(src);
 	}
 	else {
 		return;
 	}
 	
-	Serial.print(F("Data is "));
-	Serial.print(dp.dhdr.tlen);
-	Serial.print(F(" bytes long\n"));
+	PRINT(F("Data is "));PRINT(dp.dhdr.tlen);PRINT(F(" bytes long\n"));
 	unsigned short cmd = dp.hdr.cmd;        // only a byte so no reordering :)
-	Serial.print(F("Received a "));
-	Serial.print(cmdnames[cmd]);
-	Serial.print(F(" command.\n"));
-	Serial.print(F("Message for channel "));
-	Serial.println(dp.hdr.dst_chan_num);
+	PRINT(F("Received a "));
+	PRINT(cmdnames[cmd]);
+	PRINT(F(" command.\n"));
+	PRINT(F("Message for channel "));
+	PRINTLN(dp.hdr.dst_chan_num);
 	
 	ChannelState *state = NULL;
 	/* Always allow disconnections to prevent crazies */
@@ -185,16 +190,16 @@ void network_handler(){
 			state->remote_addr = src;
   		} else if (cmd == CONNECT){
   			state = new_channel();
-  			Serial.print(F("Sensor: New Channel\n"));
+  			PRINT(F("Sensor: New Channel\n"));
   			state->remote_addr = src;
   		} else return; //Otherwise quit
   	} else {
 		state = get_channel_state(dp.hdr.dst_chan_num);
 		if (state == NULL){
-			Serial.print(F("Channel doesn't exist\n"));
+			PRINT(F("Channel doesn't exist\n"));
 			return;
 		} else if (check_seqno(state, &dp) == 0){
-			Serial.print(F("Oh no\n"));
+			PRINT(F("Oh no\n"));
 			return;
 		} else {
 		 // CHECK IF RIGHT CONNECTION
@@ -211,7 +216,7 @@ void network_handler(){
 		case(PACK):   		pack_handler(state, &dp);		break;
 		case(RACK):			rack_handler(state, &dp);		break;
 		case(DISCONNECT): 	close_handler(state, &dp);		break;
-		default:			Serial.print(F("Unknown CMD type\n"));
+		default:			PRINT(F("Unknown CMD type\n"));
 	}
 
 }
@@ -220,14 +225,14 @@ void send_handler(int chan){
 	ChannelState *s = get_channel_state(chan);
 	send_value(s);
 	set_timer(s->rate, s->chan_num, &send_handler);
-	Serial.print(F("SENT\n"));
+	PRINT(F("SENT\n"));
 }
 
 void reliable_retry(int chan){
 	ChannelState *s = get_channel_state(chan);
 	if (s == NULL)return;
 	if (s->state % 2 != 0){ // Waiting for response state...
-		Serial.print(F("Retrying...\n"));
+		PRINT(F("Retrying...\n"));
 		resend(s); // Assume failed, retry and set timer again
 		set_timer(TIMEOUT, s->chan_num, &reliable_retry);
 	}
@@ -235,7 +240,7 @@ void reliable_retry(int chan){
 
 void setup(){
 	Serial.begin(38400);
-	Serial.println(F(">> Sensor initialising..."));
+	PRINTLN(F(">> Sensor initialising..."));
 	randomSeed(analogRead(0));// Used for addr
 	ledIOSetup();
 
@@ -250,7 +255,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	init_timer();
-	Serial.println(F(">> Initialised"));
+	PRINTLN(F(">> Initialised"));
 }
 
 void loop(){
