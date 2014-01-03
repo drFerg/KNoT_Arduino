@@ -7,8 +7,12 @@
 
 {% block content %}
 <div class="page-header">
-  <h2>IoT Dashboard</h2>
+  <h2>Query Network for Devices</h2>
 </div>
+<form action="/queryDevices">
+    <button type="submit" class="btn btn-default btn-block">Search for devices</button>
+</form>
+
 {% if things %}
 <div class="row">
     {% for thing in things %}
@@ -16,23 +20,19 @@
         <div class="panel panel-default">
             <div class="panel-heading"><h3 class="panel-title">{{ thing.name }}</h3></div>
             <ul class="list-group">
-                <li class="list-group-item"><strong>Status: </strong>{% if thing.connected == 0 %}
-                In range, not connected
-                {% elif thing.connected == 1 %}
-                Connected
-                {% else %}
-                Unknown
-                {% endif %}   </li>
                 <li class="list-group-item"><strong>Address: </strong>{{thing.addr}}</li>
                 <li class="list-group-item"><strong>Type: </strong>{% if thing.dev_type == 1 %}
                     Temperature sensor
                 {% else %}
                     {{thing.dev_type}}
                 {% endif %}</li>
-                <li class="list-group-item"><strong>Temperature: </strong>{{thing.data}}C</li>
                 <li class="list-group-item"><strong>Updated: </strong>{{thing.refreshed|date:'d M Y H:i:s'}}</li>
-                <li class="list-group-item"><button type="button" class="btn btn-default btn-block">Edit name</button></li>
-                <li class="list-group-item"><button type="button" class="btn btn-default btn-block">Disconnect</button></li>
+                <li class="list-group-item">
+                    <form action="/connect/">
+                        <button type="submit" class="btn btn-default btn-block">Connect</button>
+                        <input type="hidden" name="addr" value="{{thing.addr}}">
+                    </form>
+                </li>
             </ul>
         </div>
     </div>

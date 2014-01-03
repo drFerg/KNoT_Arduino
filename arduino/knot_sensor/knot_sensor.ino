@@ -21,7 +21,7 @@
 #define PRINTLN(...)
 #endif
 
-#define TIMEOUT 0.1
+#define TIMEOUT 0.5
 #define PING_WAIT 3
 #define TIMER_INTERVAL 3
 #define HOME_CHANNEL 0
@@ -37,15 +37,25 @@
 
 #define RICE_COOK_PIN A0
 #define TEMP_PIN A7
-
+#define SENSOR_ID sensor_id
 char sensor_name[] = "CPU";
 uint8_t sensor_type = TEMP;
-
+uint16_t sensor_id = 0;
 ChannelState home_channel_state;
 
+void init_sensor_id(uint16_t new_id){
+	byte *id = (byte *)&sensor_id;
+	id[0] = EEPROM.read(100);
+	id[1] = EEPROM.read(101);
+	if (sensor_id == 0){
+		sensor_id = new_id;
+		EEPROM.write(100, id[0]);
+		EEPROM.write(101, id[1]);
+	}
+}
+
 float ambientTemp(){
-	int reading = analogRead(TEMP_PIN);
-	return (100 * reading * 3.3)/1024;
+	return (100 * analogRead(TEMP_PIN) * 3.3)/1023;
 }
 
 int isCooking(){
@@ -223,7 +233,9 @@ void reliable_retry(int chan){
 
 void setup(){
 	Serial.begin(38400);
-	PRINTLN(F(">> Sensor initialising..."));
+	PRINTLN(F("SENSOR>> initialising..."));
+	init_sensor_id(1);
+	PRINT("SENSOR>> ID: "); PRINTLN(sensor_id);
 	randomSeed(analogRead(0));// Used for addr
 	ledIOSetup();
 
@@ -231,6 +243,7 @@ void setup(){
 	init_knot_network();
 	set_dev_addr(random(1,256));
 	blinker();
+	
 
 	home_channel_state.chan_num = 0;
 	home_channel_state.remote_chan_num = 0;
@@ -238,7 +251,7 @@ void setup(){
 	home_channel_state.remote_addr = 0;
 	home_channel_state.rate = 60;
 	init_timer();
-	PRINTLN(F(">> Initialised"));
+	PRINTLN(F("SENSOR>> Initialised"));
 }
 
 void loop(){
